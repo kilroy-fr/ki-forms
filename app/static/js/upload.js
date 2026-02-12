@@ -159,6 +159,11 @@ document.addEventListener("DOMContentLoaded", function () {
             body: formData
         })
         .then(function(response) {
+            // Overlay ausblenden vor Redirect oder neuem Seiteninhalt
+            if (spinnerOverlay) {
+                spinnerOverlay.classList.add("d-none");
+            }
+
             if (response.redirected) {
                 window.location.href = response.url;
             } else {
