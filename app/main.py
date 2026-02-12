@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import requests
 from flask import Flask
@@ -17,6 +18,18 @@ app = Flask(
 app.config["MAX_CONTENT_LENGTH"] = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 app.register_blueprint(forms_bp)
+
+# Version aus VERSION-Datei laden
+def get_version():
+    version_file = Path(__file__).parent.parent / "VERSION"
+    try:
+        return version_file.read_text().strip()
+    except Exception:
+        return "0.1"
+
+@app.context_processor
+def inject_version():
+    return {"version": get_version()}
 
 # Startup-Pruefungen
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

@@ -38,20 +38,23 @@ def index():
 def thumbnail(form_id):
     """Thumbnail der ersten PDF-Seite als JPEG."""
     from pdf2image import convert_from_path
+    from PIL import Image
 
     template_path = settings.FORM_TEMPLATE_DIR / f"{form_id}.pdf"
     if not template_path.exists():
         abort(404, "PDF-Vorlage nicht gefunden")
 
-    images = convert_from_path(str(template_path), first_page=1, last_page=1, dpi=72)
+    # Höhere DPI für bessere Qualität
+    images = convert_from_path(str(template_path), first_page=1, last_page=1, dpi=200)
     img = images[0]
-    # Auf 50px Hoehe skalieren
-    ratio = 50 / img.height
+    # Auf 200px Höhe skalieren
+    ratio = 200 / img.height
     new_width = int(img.width * ratio)
-    img = img.resize((new_width, 50))
+    # LANCZOS für beste Qualität beim Verkleinern
+    img = img.resize((new_width, 200), Image.Resampling.LANCZOS)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
+    img.save(buf, format="JPEG", quality=95, optimize=True)
     buf.seek(0)
     return send_file(buf, mimetype="image/jpeg")
 

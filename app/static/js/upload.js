@@ -6,9 +6,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const fileList = document.getElementById("fileList");
     const submitBtn = document.getElementById("submitBtn");
     const uploadForm = document.getElementById("uploadForm");
-    const processingInfo = document.getElementById("processingInfo");
+    const spinnerOverlay = document.getElementById("spinnerOverlay");
 
     let filesSelected = false;
+    let selectedFiles = []; // Array zum Speichern ausgewählter Dateien
 
     // Formular-Dropdown: Thumbnail laden und Form-Action setzen
     if (formSelect) {
@@ -39,6 +40,11 @@ document.addEventListener("DOMContentLoaded", function () {
         submitBtn.disabled = !(formChosen && filesSelected);
     }
 
+    // Verhindere Event-Bubbling vom fileInput
+    fileInput.addEventListener("click", function (e) {
+        e.stopPropagation();
+    });
+
     // Klick auf Drop-Zone oeffnet Dateiauswahl
     dropZone.addEventListener("click", function () {
         fileInput.click();
@@ -60,37 +66,63 @@ document.addEventListener("DOMContentLoaded", function () {
 
         var files = e.dataTransfer.files;
         if (files.length > 0) {
-            fileInput.files = files;
-            updateFileList();
+            addFiles(files);
         }
     });
 
     // Dateiauswahl ueber Dialog
     fileInput.addEventListener("change", function () {
-        updateFileList();
+        if (fileInput.files.length > 0) {
+            addFiles(fileInput.files);
+        }
     });
+
+    // Dateien zum Array hinzufügen
+    function addFiles(files) {
+        for (var i = 0; i < files.length; i++) {
+            selectedFiles.push(files[i]);
+        }
+        updateFileList();
+    }
+
+    // Datei aus dem Array entfernen
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        updateFileList();
+    }
 
     function updateFileList() {
         fileList.innerHTML = "";
-        var files = fileInput.files;
 
-        if (files.length === 0) {
+        if (selectedFiles.length === 0) {
             filesSelected = false;
             updateSubmitState();
             return;
         }
 
-        for (var i = 0; i < files.length; i++) {
-            var file = files[i];
+        for (var i = 0; i < selectedFiles.length; i++) {
+            var file = selectedFiles[i];
             var sizeMB = (file.size / (1024 * 1024)).toFixed(1);
             var item = document.createElement("div");
-            item.className = "d-flex align-items-center p-2 mb-1 bg-light rounded";
+            item.className = "d-flex align-items-center p-2 mb-2 bg-dark border border-secondary rounded";
             item.innerHTML =
-                '<i class="bi bi-file-earmark-pdf text-danger me-2"></i>' +
+                '<i class="bi bi-file-earmark-pdf text-danger me-2 fs-5"></i>' +
                 '<span class="flex-grow-1">' + file.name + "</span>" +
-                '<span class="text-muted small">' + sizeMB + " MB</span>";
+                '<span class="text-muted small me-3">' + sizeMB + " MB</span>" +
+                '<button type="button" class="btn btn-sm btn-outline-danger border-0" data-index="' + i + '" title="Datei entfernen">' +
+                '<i class="bi bi-trash"></i>' +
+                '</button>';
             fileList.appendChild(item);
         }
+
+        // Event-Listener für Lösch-Buttons hinzufügen
+        var deleteButtons = fileList.querySelectorAll("button[data-index]");
+        deleteButtons.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var index = parseInt(this.getAttribute("data-index"));
+                removeFile(index);
+            });
+        });
 
         filesSelected = true;
         updateSubmitState();
@@ -98,15 +130,52 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Formular absenden: Ladeindikator zeigen
     uploadForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
         if (!formSelect || !formSelect.value) {
-            e.preventDefault();
             return;
         }
+
+        if (selectedFiles.length === 0) {
+            return;
+        }
+
+        // FormData mit ausgewählten Dateien erstellen
+        var formData = new FormData();
+        for (var i = 0; i < selectedFiles.length; i++) {
+            formData.append("files", selectedFiles[i]);
+        }
+
+        // Spinner Overlay anzeigen
+        if (spinnerOverlay) {
+            spinnerOverlay.classList.remove("d-none");
+        }
+
         submitBtn.disabled = true;
-        submitBtn.innerHTML =
-            '<span class="spinner-border spinner-border-sm me-2"></span>Wird verarbeitet...';
-        dropZone.classList.add("d-none");
-        fileList.classList.add("d-none");
-        processingInfo.classList.remove("d-none");
+
+        // AJAX-Request senden
+        fetch(uploadForm.action, {
+            method: "POST",
+            body: formData
+        })
+        .then(function(response) {
+            if (response.redirected) {
+                window.location.href = response.url;
+            } else {
+                return response.text().then(function(text) {
+                    document.open();
+                    document.write(text);
+                    document.close();
+                });
+            }
+        })
+        .catch(function(error) {
+            console.error("Fehler:", error);
+            alert("Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.");
+            submitBtn.disabled = false;
+            if (spinnerOverlay) {
+                spinnerOverlay.classList.add("d-none");
+            }
+        });
     });
 });

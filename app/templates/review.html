@@ -1,29 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}{{ form.form_id }} - Felder pruefen{% endblock %}
+{% block title %}{{ form.form_id }} - Felder prüfen{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="/">Formulare</a></li>
         <li class="breadcrumb-item"><a href="/form/{{ form.form_id }}/upload">{{ form.form_id }}</a></li>
-        <li class="breadcrumb-item active">Pruefen</li>
+        <li class="breadcrumb-item active">Prüfen</li>
     </ol>
 </nav>
 
-<h2>{{ form.form_id }} &mdash; Felder pruefen und ergaenzen</h2>
+<h2>{{ form.form_id }} &mdash; Felder prüfen und ergänzen</h2>
 
 <div class="alert alert-info d-flex align-items-center mb-4">
     <i class="bi bi-robot fs-4 me-3"></i>
     <div>
         <strong>{{ filled_count }}</strong> von <strong>{{ total_count }}</strong>
-        Feldern automatisch ausgefuellt.
+        Feldern automatisch ausgefüllt.
         {% if unfilled_count > 0 %}
         <span class="text-warning fw-bold">
-            {{ unfilled_count }} Felder benoetigen Ihre Eingabe.
+            {{ unfilled_count }} Felder benötigen Ihre Eingabe.
         </span>
         {% else %}
-        <span class="text-success fw-bold">Alle Felder ausgefuellt!</span>
+        <span class="text-success fw-bold">Alle Felder ausgefüllt!</span>
         {% endif %}
     </div>
 </div>
