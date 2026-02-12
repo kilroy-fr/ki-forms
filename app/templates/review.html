@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form.form_id }} - Felder pruefen{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Formulare</a></li>
+        <li class="breadcrumb-item"><a href="/form/{{ form.form_id }}/upload">{{ form.form_id }}</a></li>
+        <li class="breadcrumb-item active">Pruefen</li>
+    </ol>
+</nav>
+
+<h2>{{ form.form_id }} &mdash; Felder pruefen und ergaenzen</h2>
+
+<div class="alert alert-info d-flex align-items-center mb-4">
+    <i class="bi bi-robot fs-4 me-3"></i>
+    <div>
+        <strong>{{ filled_count }}</strong> von <strong>{{ total_count }}</strong>
+        Feldern automatisch ausgefuellt.
+        {% if unfilled_count > 0 %}
+        <span class="text-warning fw-bold">
+            {{ unfilled_count }} Felder benoetigen Ihre Eingabe.
+        </span>
+        {% else %}
+        <span class="text-success fw-bold">Alle Felder ausgefuellt!</span>
+        {% endif %}
+    </div>
+</div>
+
+<form action="/form/{{ form.form_id }}/generate/{{ session_id }}" method="post">
+    <div class="accordion" id="formSections">
+        {% for section_num, section_fields in sections.items() %}
+        {% set section_filled = section_fields | selectattr("status", "equalto", "filled") | list | length %}
+        {% set section_total = section_fields | length %}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button {% if section_filled == section_total %}collapsed{% endif %}"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#section{{ section_num }}">
+                    {{ section_titles.get(section_num, "Abschnitt " ~ section_num) }}
+                    <span class="badge bg-success section-badge ms-2" title="Ausgefuellt">
+                        {{ section_filled }}
+                    </span>
+                    {% if section_total - section_filled > 0 %}
+                    <span class="badge bg-warning text-dark section-badge ms-1" title="Offen">
+                        {{ section_total - section_filled }}
+                    </span>
+                    {% endif %}
+                </button>
+            </h2>
+            <div id="section{{ section_num }}"
+                 class="accordion-collapse collapse {% if section_filled < section_total %}show{% endif %}">
+                <div class="accordion-body">
+                    {% for field in section_fields %}
+                        {% if field.field_type.value == "text" %}
+                        <div class="mb-3 p-2 rounded {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
+                            <label class="form-label fw-bold" for="{{ field.field_name }}">
+                                {{ field.label_de }}
+                            </label>
+                            {% if field.ai_confidence %}
+                            <span class="badge confidence-{{ field.ai_confidence }}"
+                                  title="KI-Konfidenz: {{ field.ai_confidence }}">
+                                {% if field.ai_confidence == "high" %}
+                                <i class="bi bi-check-circle-fill"></i> sicher
+                                {% elif field.ai_confidence == "medium" %}
+                                <i class="bi bi-exclamation-circle-fill"></i> mittel
+                                {% else %}
+                                <i class="bi bi-question-circle-fill"></i> unsicher
+                                {% endif %}
+                            </span>
+                            {% endif %}
+
+                            {% if field.field_name in long_text_fields %}
+                            <textarea class="form-control" name="{{ field.field_name }}"
+                                      id="{{ field.field_name }}"
+                                      rows="4">{{ field.value or '' }}</textarea>
+                            {% else %}
+                            <input type="text" class="form-control"
+                                   name="{{ field.field_name }}"
+                                   id="{{ field.field_name }}"
+                                   value="{{ field.value or '' }}">
+                            {% endif %}
+                        </div>
+
+                        {% elif field.field_type.value == "checkbox" %}
+                        <div class="form-check mb-2 p-2 ps-4 rounded {% if field.status.value == 'unfilled' and field.value != 'ja' %}{% endif %}">
+                            <input class="form-check-input" type="checkbox"
+                                   name="{{ field.field_name }}"
+                                   id="{{ field.field_name }}"
+                                   value="ja"
+                                   {% if field.value == 'ja' %}checked{% endif %}>
+                            <label class="form-check-label" for="{{ field.field_name }}">
+                                {{ field.label_de }}
+                            </label>
+                            {% if field.ai_confidence %}
+                            <span class="badge confidence-{{ field.ai_confidence }} ms-1">
+                                {% if field.ai_confidence == "high" %}
+                                <i class="bi bi-check-circle-fill"></i>
+                                {% elif field.ai_confidence == "medium" %}
+                                <i class="bi bi-exclamation-circle-fill"></i>
+                                {% else %}
+                                <i class="bi bi-question-circle-fill"></i>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-file-earmark-pdf"></i> PDF erstellen
+        </button>
+        <a href="/form/{{ form.form_id }}/upload" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-counterclockwise"></i> Neu starten
+        </a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/review.js"></script>
+{% endblock %}

@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    container_name: ki-forms-app
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:14b
+      - OCR_LANGUAGE=deu
+    volumes:
+      - uploads:/app/uploads
+      - output:/app/output
+    restart: unless-stopped
+    networks:
+      - caddy-proxy-network
+      - ollama-net
+
+volumes:
+  uploads:
+  output:
+
+networks:
+  caddy-proxy-network:
+    external: true
+    name: caddy-proxy-network
+  ollama-net:
+    external: true
+    name: ollama-net

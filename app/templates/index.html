@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}KI-Forms{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+    <h1>KI-Forms</h1>
+    <p class="lead text-muted">
+        KI-gestuetztes Ausfuellen von Formularen aus hochgeladenen Dokumenten
+    </p>
+</div>
+
+<!-- Container 1: Formularauswahl -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Formular auswaehlen</h5>
+        <div class="d-flex align-items-center gap-3">
+            <select class="form-select" id="formSelect" style="max-width: 400px;">
+                <option value="">-- Formular waehlen --</option>
+                {% for form_id, form_def in forms.items() %}
+                <option value="{{ form_id }}"
+                        data-title="{{ form_def.form_title }}"
+                        data-fields="{{ form_def.fields | length }}"
+                        {% if completed_form == form_id %}selected{% endif %}>
+                    {{ form_id }} &mdash; {{ form_def.form_title }}
+                </option>
+                {% endfor %}
+            </select>
+            <img id="formThumbnail" class="form-thumbnail d-none" alt="Formularvorschau">
+        </div>
+    </div>
+</div>
+
+<!-- Container 2: Upload & Aktionen -->
+<div class="card shadow-sm mb-4" id="uploadSection">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Dokumente hochladen</h5>
+        <p class="text-muted">
+            Laden Sie die PDF-Dokumente hoch, aus denen das Formular ausgefuellt werden soll
+            (z.B. Arztbriefe, Befundberichte, Entlassungsbriefe).
+        </p>
+
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+            <div class="upload-zone mb-3" id="dropZone">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <p class="mt-2 mb-1 fw-bold">PDF-Dateien hierher ziehen</p>
+                <p class="text-muted mb-0">oder klicken zum Auswaehlen</p>
+                <input type="file" name="files" id="fileInput" multiple accept=".pdf"
+                       class="d-none">
+            </div>
+
+            <div id="fileList" class="mb-3"></div>
+
+            <div class="alert alert-info d-flex align-items-center gap-2" role="alert">
+                <i class="bi bi-info-circle"></i>
+                <span>Unterstuetzte Formate: PDF (auch gescannte Dokumente mit OCR-Erkennung).
+                Maximal 10 Dateien, je max. 50 MB.</span>
+            </div>
+
+            <div id="processingInfo" class="d-none text-center my-4">
+                <div class="spinner-border processing-spinner text-primary" role="status">
+                    <span class="visually-hidden">Verarbeitung...</span>
+                </div>
+                <p class="mt-3 fw-bold">Dokumente werden verarbeitet...</p>
+                <p class="text-muted">
+                    Text wird extrahiert und von der KI analysiert. Dies kann je nach
+                    Dokumentgroesse 1-3 Minuten dauern.
+                </p>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                    <i class="bi bi-cpu"></i> Ausfuehren
+                </button>
+
+                {% if download_url %}
+                <a href="{{ download_url }}" class="btn btn-success btn-lg" id="downloadBtn" download>
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <a href="{{ download_url }}" class="btn btn-outline-secondary btn-lg" id="printBtn" target="_blank">
+                    <i class="bi bi-printer"></i> Drucken
+                </a>
+                {% else %}
+                <button class="btn btn-success btn-lg" id="downloadBtn" disabled>
+                    <i class="bi bi-download"></i> Download
+                </button>
+                <button class="btn btn-outline-secondary btn-lg" id="printBtn" disabled>
+                    <i class="bi bi-printer"></i> Drucken
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/upload.js"></script>
+{% endblock %}

@@ -1,0 +1,75 @@
+====================================================================================================
+VOLLSTÄNDIGE FELDLISTE - S0051 Befundbericht (66 Felder)
+====================================================================================================
+
+📝 TEXTFELDER (39):
+----------------------------------------------------------------------------------------------------
+ 1. ANAMNESE
+ 2. ARZT_UNTERS_DATUM
+ 3. BEMERKUNGEN
+ 4. DRV_Kopf_PAF_Reha_MSAT_MSNR
+ 5. FACHRICHTUNG
+ 6. FUNKTIONSEINSCHRAENKUNGEN
+ 7. LEBENSUMSTAENDE
+ 8. MED_TECHN_BEFUNDE
+ 9. NAME_DER_ÄRZTIN
+10. PAF_AIGR
+11. PAF_VSNR_trim
+12. PAT_Geburtsdatum
+13. PAT_NAME
+14. SONSTIGES
+15. TELEFONNUMMER_FÜR_RÜCKFRAGEN
+16. THERAPIE
+17. UNTERSUCHUNGSBEFUNDE
+18. VERS_AU_GRUND
+19. VERS_BEHANDLUNG
+20. VERS_BESSERUNG_DATUM_1
+21. VERS_BESSERUNG_DATUM_2
+22. VERS_DIAGNOSESCH_1
+23. VERS_DIAGNOSESCH_2
+24. VERS_DIAGNOSESCH_3
+25. VERS_DIAGNOSESCH_4
+26. VERS_DIAGNOSE_1
+27. VERS_DIAGNOSE_2
+28. VERS_DIAGNOSE_3
+29. VERS_DIAGNOSE_4
+30. VERS_GEBDAT
+31. VERS_GEWICHT
+32. VERS_KOERPERLAENGE
+33. VERS_KONTAKT_AM
+34. VERS_NAME
+35. VERS_PLZ
+36. VERS_SPRACHE_23_1
+37. VERS_STRASSE_HNR
+38. VERS_VERSCHLECHTERUNG_DATUM
+39. VERS_WOHNORT
+
+☑️  CHECKBOXEN / BUTTONS (27):
+----------------------------------------------------------------------------------------------------
+ 1. AW_1
+ 2. AW_10
+ 3. AW_11
+ 4. AW_12
+ 5. AW_13
+ 6. AW_14
+ 7. AW_15
+ 8. AW_16
+ 9. AW_17
+10. AW_18
+11. AW_19
+12. AW_2
+13. AW_20
+14. AW_21
+15. AW_22
+16. AW_23
+17. AW_24
+18. AW_24_1
+19. AW_25
+20. AW_26
+21. AW_3
+22. AW_4
+23. AW_5
+24. AW_6
+25. AW_7
+26. AW_8
+27. AW_9
