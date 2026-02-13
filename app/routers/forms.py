@@ -165,8 +165,8 @@ def review_page(form_id, session_id):
 
     long_text_fields = {
         "ANAMNESE", "FUNKTIONSEINSCHRAENKUNGEN", "THERAPIE",
-        "UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE", "LEBENSUMSTAENDE",
-        "BEMERKUNGEN", "SONSTIGES",
+        "UNTERSUCHUNGSBEFUNDE", "TECHNISCHE_BEFEUNDE", "LEBENSUMSTAENDE",
+        "BEMERKUNGEN",
     }
 
     return render_template(
