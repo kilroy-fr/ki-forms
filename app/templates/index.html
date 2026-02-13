@@ -4,27 +4,51 @@
 
 {% block content %}
 
-
-<!-- Container 1: Formularauswahl -->
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <div class="form-selection-wrapper">
-            <div class="form-selection-left">
-                <h2 class="card-title mb-3">Formular auswählen</h2>
-                <select class="form-select form-select-lg" id="formSelect">
-                    <option value="">-- Formular wählen --</option>
-                    {% for form_id, form_def in forms.items() %}
-                    <option value="{{ form_id }}"
-                            data-title="{{ form_def.form_title }}"
-                            data-fields="{{ form_def.fields | length }}"
-                            {% if completed_form == form_id %}selected{% endif %}>
-                        {{ form_id }} &mdash; {{ form_def.form_title }}
-                    </option>
-                    {% endfor %}
-                </select>
+<!-- Zwei-Spalten-Layout: Formularauswahl und Absender-Daten -->
+<div class="two-column-layout mb-4">
+    <!-- Linke Spalte: Formularauswahl (67%) -->
+    <div>
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="form-selection-wrapper">
+                    <div class="form-selection-left">
+                        <h2 class="card-title mb-3">Formular auswählen</h2>
+                        <select class="form-select form-select-lg" id="formSelect">
+                            <option value="">-- Formular wählen --</option>
+                            {% for form_id, form_def in forms.items() %}
+                            <option value="{{ form_id }}"
+                                    data-title="{{ form_def.form_title }}"
+                                    data-fields="{{ form_def.fields | length }}"
+                                    {% if completed_form == form_id %}selected{% endif %}>
+                                {{ form_id }} &mdash; {{ form_def.form_title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="thumbnail-container d-none" id="thumbnailContainer">
+                        <img id="formThumbnail" class="form-thumbnail" alt="Formularvorschau">
+                    </div>
+                </div>
             </div>
-            <div class="thumbnail-container">
-                <img id="formThumbnail" class="form-thumbnail d-none" alt="Formularvorschau">
+        </div>
+    </div>
+
+    <!-- Rechte Spalte: Absender-Daten (33%) -->
+    <div>
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="card-title mb-0">Absender-Daten</h2>
+                    <button class="btn btn-sm btn-primary" id="editSenderBtn">
+                        <i class="bi bi-pencil"></i> Bearbeiten
+                    </button>
+                </div>
+                <div id="senderDataDisplay" class="sender-data-display">
+                    <p class="text-muted text-center py-4">
+                        <i class="bi bi-person-badge fs-1 d-block mb-2"></i>
+                        Noch keine Absender-Daten hinterlegt
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -74,8 +98,132 @@
         </form>
     </div>
 </div>
+
+<!-- Modal für Absender-Daten -->
+<div class="sender-modal-overlay d-none" id="senderModal">
+    <div class="sender-modal">
+        <div class="sender-modal-header">
+            <h3 class="mb-0">Absender-Daten bearbeiten</h3>
+            <button class="btn-close btn-close-white" id="closeSenderModal" aria-label="Schließen"></button>
+        </div>
+        <div class="sender-modal-body">
+            <form id="senderDataForm">
+                <!-- Zeile 1: Anrede und Titel -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="anrede" class="form-label">Anrede</label>
+                        <select class="form-select" id="anrede" name="anrede">
+                            <option value="">-- Bitte wählen --</option>
+                            <option value="Herr">Herr</option>
+                            <option value="Frau">Frau</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="titel" class="form-label">Titel</label>
+                        <select class="form-select" id="titel" name="titel">
+                            <option value="">-- Kein Titel --</option>
+                            <option value="Dr. med.">Dr. med.</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Zeile 2: Vorname und Name -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="vorname" class="form-label">Vorname</label>
+                        <input type="text" class="form-control" id="vorname" name="vorname">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="name" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="name" name="name">
+                    </div>
+                </div>
+
+                <!-- Zeile 3: Praxis -->
+                <div class="mb-3">
+                    <label for="praxis" class="form-label">Praxis</label>
+                    <input type="text" class="form-control" id="praxis" name="praxis">
+                </div>
+
+                <!-- Zeile 4: Straße und Hausnummer -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="strasse" class="form-label">Straße</label>
+                        <input type="text" class="form-control" id="strasse" name="strasse">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="hausnummer" class="form-label">Hausnummer</label>
+                        <input type="text" class="form-control" id="hausnummer" name="hausnummer">
+                    </div>
+                </div>
+
+                <!-- Zeile 5: PLZ und Ort -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="plz" class="form-label">PLZ</label>
+                        <input type="text" class="form-control" id="plz" name="plz" maxlength="5" pattern="\d{5}">
+                    </div>
+                    <div class="col-md-8">
+                        <label for="ort" class="form-label">Ort</label>
+                        <input type="text" class="form-control" id="ort" name="ort">
+                    </div>
+                </div>
+
+                <!-- Zeile 6: Telefon -->
+                <div class="mb-3">
+                    <label for="telefon" class="form-label">Telefon</label>
+                    <input type="tel" class="form-control" id="telefon" name="telefon">
+                </div>
+
+                <!-- Zeile 7: Email -->
+                <div class="mb-3">
+                    <label for="email" class="form-label">E-Mail</label>
+                    <input type="email" class="form-control" id="email" name="email">
+                </div>
+
+                <!-- Bankdaten -->
+                <h5 class="mt-4 mb-3">Bankdaten</h5>
+
+                <!-- Zeile 8: Kontoinhaber -->
+                <div class="mb-3">
+                    <label for="kontoinhaber" class="form-label">Kontoinhaber</label>
+                    <input type="text" class="form-control" id="kontoinhaber" name="kontoinhaber">
+                </div>
+
+                <!-- Zeile 9: IBAN -->
+                <div class="mb-3">
+                    <label for="iban" class="form-label">IBAN</label>
+                    <input type="text" class="form-control" id="iban" name="iban">
+                </div>
+
+                <!-- Zeile 10: BIC und Kreditinstitut -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="bic" class="form-label">BIC</label>
+                        <input type="text" class="form-control" id="bic" name="bic">
+                    </div>
+                    <div class="col-md-8">
+                        <label for="kreditinstitut" class="form-label">Kreditinstitut</label>
+                        <input type="text" class="form-control" id="kreditinstitut" name="kreditinstitut">
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" class="btn btn-outline-secondary" id="cancelSenderBtn">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/js/upload.js"></script>
+<script src="/static/js/sender-data.js"></script>
 {% endblock %}

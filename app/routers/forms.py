@@ -1,8 +1,10 @@
 import io
 import uuid
 import shutil
+import json
+from pathlib import Path
 
-from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, abort, send_file, jsonify
 
 from app.config import settings
 
@@ -195,6 +197,10 @@ def generate_pdf(form_id, session_id):
     for field in fields:
         if field.field_type == FieldType.CHECKBOX:
             field.value = "ja" if field.field_name in request.form else "nein"
+        elif field.field_type == FieldType.RADIO:
+            # Radio-Button: Prüfe, ob dieser Radio-Button in der Gruppe ausgewählt wurde
+            selected_value = request.form.get(field.radio_group)
+            field.value = "ja" if selected_value == field.field_name else "nein"
         else:
             submitted_value = request.form.get(field.field_name)
             if submitted_value is not None:
@@ -241,3 +247,68 @@ def download_file(form_id, session_id):
         as_attachment=True,
         download_name=f"{form_id}_ausgefuellt.pdf",
     )
+
+
+@forms_bp.route("/api/warmup", methods=["POST"])
+def warmup_ollama():
+    """API-Endpoint zum Aufwärmen des Ollama-Modells."""
+    from app.services import ollama_client
+    import threading
+
+    def do_warmup():
+        try:
+            ollama_client.warmup_model(settings.OLLAMA_MODEL)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Warmup fehlgeschlagen: {e}")
+
+    # Warmup in separatem Thread ausführen, um Request nicht zu blockieren
+    thread = threading.Thread(target=do_warmup, daemon=True)
+    thread.start()
+
+    return {"status": "warmup_started"}, 202
+
+
+# Pfad zur Absender-Daten-Datei
+SENDER_DATA_FILE = settings.FORM_TEMPLATE_DIR / "sender_data.json"
+
+
+@forms_bp.route("/api/sender-data", methods=["GET"])
+def get_sender_data():
+    """Absender-Daten abrufen."""
+    try:
+        if SENDER_DATA_FILE.exists():
+            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return jsonify(data), 200
+        else:
+            return jsonify({}), 200
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Fehler beim Laden der Absender-Daten: {e}")
+        return jsonify({"error": "Fehler beim Laden der Absender-Daten"}), 500
+
+
+@forms_bp.route("/api/sender-data", methods=["POST"])
+def save_sender_data():
+    """Absender-Daten speichern."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Keine Daten empfangen"}), 400
+
+        # Stelle sicher, dass das Verzeichnis existiert
+        SENDER_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        # Speichere die Daten
+        with open(SENDER_DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({"status": "success", "message": "Absender-Daten gespeichert"}), 200
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Fehler beim Speichern der Absender-Daten: {e}")
+        return jsonify({"error": "Fehler beim Speichern der Absender-Daten"}), 500
