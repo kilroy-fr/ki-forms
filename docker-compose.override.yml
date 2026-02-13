@@ -1,0 +1,22 @@
+# Development override - wird automatisch mit docker-compose verwendet
+# Für Live-Reloading von Code-Änderungen ohne Container-Rebuild
+
+services:
+  app:
+    # Volume-Mounts für Live-Reloading
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+      - uploads:/app/uploads
+      - output:/app/output
+
+    # Flask Development Server statt Gunicorn
+    command: python -m flask --app app.main run --host=0.0.0.0 --port=8000 --reload --debug
+
+    # Development-spezifische Umgebungsvariablen
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:14b
+      - OCR_LANGUAGE=deu
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1

@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     const formSelect = document.getElementById("formSelect");
     const thumbnail = document.getElementById("formThumbnail");
+    const thumbnailContainer = document.getElementById("thumbnailContainer");
     const dropZone = document.getElementById("dropZone");
     const fileInput = document.getElementById("fileInput");
     const fileList = document.getElementById("fileList");
@@ -17,10 +18,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const formId = this.value;
             if (formId) {
                 thumbnail.src = "/form/" + formId + "/thumbnail";
-                thumbnail.classList.remove("d-none");
+                thumbnailContainer.classList.remove("d-none");
                 uploadForm.action = "/form/" + formId + "/process";
             } else {
-                thumbnail.classList.add("d-none");
+                thumbnailContainer.classList.add("d-none");
                 thumbnail.src = "";
                 uploadForm.action = "";
             }
@@ -30,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Initial: Falls Formular vorausgewaehlt (z.B. nach Redirect)
         if (formSelect.value) {
             thumbnail.src = "/form/" + formSelect.value + "/thumbnail";
-            thumbnail.classList.remove("d-none");
+            thumbnailContainer.classList.remove("d-none");
             uploadForm.action = "/form/" + formSelect.value + "/process";
         }
     }

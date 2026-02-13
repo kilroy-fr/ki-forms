@@ -1,0 +1,18 @@
+# Production override
+# Verwendung: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  app:
+    # Nur persistente Volumes, kein Code-Mount
+    volumes:
+      - uploads:/app/uploads
+      - output:/app/output
+
+    # Gunicorn für Production
+    command: gunicorn app.main:app --bind 0.0.0.0:8000 --workers 2 --timeout 600
+
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:14b
+      - OCR_LANGUAGE=deu
+      - FLASK_ENV=production

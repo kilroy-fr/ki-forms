@@ -7,6 +7,7 @@ import copy
 class FieldType(str, Enum):
     TEXT = "text"
     CHECKBOX = "checkbox"
+    RADIO = "radio"
 
 
 class FieldStatus(str, Enum):
@@ -25,6 +26,10 @@ class FormField:
     value: Optional[str] = None
     status: FieldStatus = FieldStatus.UNFILLED
     ai_confidence: Optional[str] = None
+    radio_group: Optional[str] = None  # Gruppe für Radio-Buttons
+    extract_from_ai: bool = True  # Ob das Feld von KI extrahiert werden soll
+    conditional_on: Optional[str] = None  # Feldname, von dem dieses Feld abhängt
+    conditional_value: Optional[str] = None  # Wert, der erfüllt sein muss, um dieses Feld anzuzeigen
 
     def model_copy(self) -> "FormField":
         return copy.deepcopy(self)

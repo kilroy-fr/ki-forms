@@ -2,6 +2,15 @@
 
 {% block title %}{{ form.form_id }} - Felder prüfen{% endblock %}
 
+{% block head %}
+<style>
+    .large-textarea {
+        min-height: 300px !important;
+        width: 100% !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -53,9 +62,348 @@
             <div id="section{{ section_num }}"
                  class="accordion-collapse collapse {% if section_filled < section_total %}show{% endif %}">
                 <div class="accordion-body">
+                    {% if section_num == 2 %}
+                        {# Diagnosen-Sektion: Zweispaltige Tabelle ohne Linien #}
+                        <div class="diagnoses-table">
+                            <style>
+                                .diagnoses-table table { border: none; }
+                                .diagnoses-table td { border: none; padding: 0.5rem; vertical-align: top; }
+                                .diagnoses-table td:first-child { width: 60%; }
+                                .diagnoses-table td:last-child { width: 40%; }
+                            </style>
+                            <table class="w-100">
+                                {% for i in range(1, 5) %}
+                                <tr>
+                                    <td>
+                                        {% set diag_field = section_fields | selectattr("field_name", "equalto", "VERS_DIAGNOSE_" ~ i) | first %}
+                                        {% if diag_field %}
+                                        <div class="mb-3 {% if diag_field.status.value == 'unfilled' %}field-unfilled{% elif diag_field.status.value == 'filled' %}field-filled{% endif %}">
+                                            <label class="form-label fw-bold" for="{{ diag_field.field_name }}">
+                                                {{ diag_field.label_de }}
+                                            </label>
+                                            {% if diag_field.ai_confidence %}
+                                            <span class="badge confidence-{{ diag_field.ai_confidence }}"
+                                                  title="KI-Konfidenz: {{ diag_field.ai_confidence }}">
+                                                {% if diag_field.ai_confidence == "high" %}
+                                                <i class="bi bi-check-circle-fill"></i> sicher
+                                                {% elif diag_field.ai_confidence == "medium" %}
+                                                <i class="bi bi-exclamation-circle-fill"></i> mittel
+                                                {% else %}
+                                                <i class="bi bi-question-circle-fill"></i> unsicher
+                                                {% endif %}
+                                            </span>
+                                            {% endif %}
+                                            <input type="text" class="form-control"
+                                                   name="{{ diag_field.field_name }}"
+                                                   id="{{ diag_field.field_name }}"
+                                                   value="{{ diag_field.value or '' }}">
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% set icd_field = section_fields | selectattr("field_name", "equalto", "VERS_DIAGNOSESCH_" ~ i) | first %}
+                                        {% if icd_field %}
+                                        <div class="mb-3 {% if icd_field.status.value == 'unfilled' %}field-unfilled{% elif icd_field.status.value == 'filled' %}field-filled{% endif %}">
+                                            <label class="form-label fw-bold" for="{{ icd_field.field_name }}">
+                                                {{ icd_field.label_de }}
+                                            </label>
+                                            {% if icd_field.ai_confidence %}
+                                            <span class="badge confidence-{{ icd_field.ai_confidence }}"
+                                                  title="KI-Konfidenz: {{ icd_field.ai_confidence }}">
+                                                {% if icd_field.ai_confidence == "high" %}
+                                                <i class="bi bi-check-circle-fill"></i> sicher
+                                                {% elif icd_field.ai_confidence == "medium" %}
+                                                <i class="bi bi-exclamation-circle-fill"></i> mittel
+                                                {% else %}
+                                                <i class="bi bi-question-circle-fill"></i> unsicher
+                                                {% endif %}
+                                            </span>
+                                            {% endif %}
+                                            <input type="text" class="form-control"
+                                                   name="{{ icd_field.field_name }}"
+                                                   id="{{ icd_field.field_name }}"
+                                                   value="{{ icd_field.value or '' }}">
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </table>
+                        </div>
+                    {% elif section_num == 11 %}
+                        {# Sektion 11: Arbeitsunfähigkeit / Prognose mit bedingten Feldern #}
+                        <div class="sektion-11">
+                            <style>
+                                .sektion-11 .question-group {
+                                    margin-bottom: 2rem;
+                                    padding: 1rem;
+                                    background-color: #2c2f33;
+                                    border-radius: 0.5rem;
+                                }
+                                .sektion-11 .question-title {
+                                    font-weight: 600;
+                                    margin-bottom: 1rem;
+                                    color: #f8f9fa;
+                                }
+                                .sektion-11 .conditional-field {
+                                    margin-left: 2rem;
+                                    margin-top: 0.5rem;
+                                    padding: 0.75rem;
+                                    background-color: #23272a;
+                                    border-radius: 0.25rem;
+                                    display: none;
+                                }
+                                .sektion-11 .conditional-field.show {
+                                    display: block;
+                                }
+                            </style>
+
+                            {# Frage 1: Arbeitsunfähigkeit #}
+                            <div class="question-group">
+                                <div class="question-title">Die Patientin / der Patient ist derzeit durch mich arbeitsunfähig geschrieben.</div>
+                                {% set au_fields = section_fields | selectattr("radio_group", "equalto", "arbeitsunfaehig") | list %}
+                                {% for field in au_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input conditional-trigger" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           data-trigger="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {# Bedingte Felder für "ja" #}
+                                {% set au_seit = section_fields | selectattr("field_name", "equalto", "VERS_AU_SEIT") | first %}
+                                {% set au_grund = section_fields | selectattr("field_name", "equalto", "VERS_AU_GRUND") | first %}
+                                <div class="conditional-field" data-depends-on="AW_28">
+                                    <div class="mb-2">
+                                        <label class="form-label" for="VERS_AU_SEIT">{{ au_seit.label_de }}</label>
+                                        <input type="text" class="form-control" name="VERS_AU_SEIT" id="VERS_AU_SEIT" value="{{ au_seit.value or '' }}">
+                                    </div>
+                                    <div>
+                                        <label class="form-label" for="VERS_AU_GRUND">{{ au_grund.label_de }}</label>
+                                        <input type="text" class="form-control" name="VERS_AU_GRUND" id="VERS_AU_GRUND" value="{{ au_grund.value or '' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Frage 2: Befundänderung #}
+                            <div class="question-group">
+                                <div class="question-title">Befundänderung in den letzten 12 Monaten</div>
+                                {% set befund_fields = section_fields | selectattr("radio_group", "equalto", "befundaenderung") | list %}
+                                {% for field in befund_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input conditional-trigger" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           data-trigger="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {# Bedingte Felder für "ja" #}
+                                <div class="conditional-field" data-depends-on="AW_30">
+                                    {% set befund_art_fields = section_fields | selectattr("radio_group", "equalto", "befundaenderung_art") | list %}
+                                    {% for field in befund_art_fields %}
+                                    <div class="form-check mb-2 p-2 ps-4 rounded">
+                                        <input class="form-check-input conditional-trigger" type="radio"
+                                               name="{{ field.radio_group }}"
+                                               id="{{ field.field_name }}"
+                                               value="{{ field.field_name }}"
+                                               data-trigger="{{ field.field_name }}"
+                                               {% if field.value == field.field_name %}checked{% endif %}>
+                                        <label class="form-check-label" for="{{ field.field_name }}">
+                                            {{ field.label_de }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                    {# Datumfeld für Besserung #}
+                                    {% set besserung_datum = section_fields | selectattr("field_name", "equalto", "VERS_BESSERUNG_DATUM") | first %}
+                                    <div class="conditional-field ms-3" data-depends-on="AW_31">
+                                        <label class="form-label" for="VERS_BESSERUNG_DATUM">{{ besserung_datum.label_de }}</label>
+                                        <input type="text" class="form-control" name="VERS_BESSERUNG_DATUM" id="VERS_BESSERUNG_DATUM" value="{{ besserung_datum.value or '' }}">
+                                    </div>
+                                    {# Datumfeld für Verschlechterung #}
+                                    {% set verschlechterung_datum = section_fields | selectattr("field_name", "equalto", "VERS_VERSCHLECHTERUNG_DATUM") | first %}
+                                    <div class="conditional-field ms-3" data-depends-on="AW_32">
+                                        <label class="form-label" for="VERS_VERSCHLECHTERUNG_DATUM">{{ verschlechterung_datum.label_de }}</label>
+                                        <input type="text" class="form-control" name="VERS_VERSCHLECHTERUNG_DATUM" id="VERS_VERSCHLECHTERUNG_DATUM" value="{{ verschlechterung_datum.value or '' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Frage 3: Deutsche Sprache #}
+                            <div class="question-group">
+                                <div class="question-title">Verständigung ist in deutscher Sprache möglich</div>
+                                {% set sprache_fields = section_fields | selectattr("radio_group", "equalto", "deutsche_sprache") | list %}
+                                {% for field in sprache_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input conditional-trigger" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           data-trigger="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {# Bedingtes Feld für "nein" #}
+                                {% set sprache = section_fields | selectattr("field_name", "equalto", "VERS_SPRACHE") | first %}
+                                <div class="conditional-field" data-depends-on="AW_33">
+                                    <label class="form-label" for="VERS_SPRACHE">{{ sprache.label_de }}</label>
+                                    <input type="text" class="form-control" name="VERS_SPRACHE" id="VERS_SPRACHE" value="{{ sprache.value or '' }}">
+                                </div>
+                            </div>
+
+                            {# Frage 4: Reisefähigkeit #}
+                            <div class="question-group">
+                                <div class="question-title">Reisefähigkeit für öffentliche Verkehrsmittel besteht.</div>
+                                {% set reise_fields = section_fields | selectattr("radio_group", "equalto", "reisefaehigkeit") | list %}
+                                {% for field in reise_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input conditional-trigger" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           data-trigger="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                                {# Bedingtes Feld für "ja" #}
+                                {% set begleitung = section_fields | selectattr("field_name", "equalto", "AW_37") | first %}
+                                <div class="conditional-field" data-depends-on="AW_36">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="AW_37" id="AW_37" value="ja" {% if begleitung.value == 'ja' %}checked{% endif %}>
+                                        <label class="form-check-label" for="AW_37">{{ begleitung.label_de }}</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Frage 5: Besserung der Leistungsfähigkeit #}
+                            <div class="question-group">
+                                <div class="question-title">Besserung der Leistungsfähigkeit ist möglich.</div>
+                                {% set besserung_fields = section_fields | selectattr("radio_group", "equalto", "besserung_leistungsfaehigkeit") | list %}
+                                {% for field in besserung_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            {# Frage 6: Belastbarkeit für Rehabilitation #}
+                            <div class="question-group">
+                                <div class="question-title">Belastbarkeit für eine Rehabilitation besteht.</div>
+                                {% set belastbarkeit_fields = section_fields | selectattr("radio_group", "equalto", "belastbarkeit_reha") | list %}
+                                {% for field in belastbarkeit_fields %}
+                                <div class="form-check mb-2 p-2 ps-4 rounded">
+                                    <input class="form-check-input" type="radio"
+                                           name="{{ field.radio_group }}"
+                                           id="{{ field.field_name }}"
+                                           value="{{ field.field_name }}"
+                                           {% if field.value == field.field_name %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ field.field_name }}">
+                                        {{ field.label_de }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    {% elif section_num == 5 %}
+                        {# Aktivitäten und Teilhabe: Radio-Button-Matrix #}
+                        <div class="aktivitaeten-table">
+                            <style>
+                                .aktivitaeten-table table {
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                }
+                                .aktivitaeten-table th, .aktivitaeten-table td {
+                                    border: 1px solid #495057;
+                                    padding: 0.75rem;
+                                    text-align: center;
+                                    vertical-align: middle;
+                                }
+                                .aktivitaeten-table th {
+                                    background-color: #495057;
+                                    color: #f8f9fa;
+                                    font-weight: 600;
+                                    font-size: 0.9rem;
+                                }
+                                .aktivitaeten-table td:first-child {
+                                    text-align: left;
+                                    font-weight: 500;
+                                    background-color: #6c757d;
+                                    color: #f8f9fa;
+                                    width: 25%;
+                                }
+                                .aktivitaeten-table td.radio-cell {
+                                    width: 15%;
+                                    background-color: #343a40;
+                                }
+                            </style>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Bereich</th>
+                                        <th>keine Beeinträchtigungen</th>
+                                        <th>Einschränkungen</th>
+                                        <th>Personelle Hilfe nötig</th>
+                                        <th>nicht durchführbar</th>
+                                        <th>Keine Angabe möglich</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set aktivitaeten = [
+                                        ('aktivitaet_lernen', 'Lernen und Wissensanwendung'),
+                                        ('aktivitaet_aufgaben', 'Allgemeine Aufgaben und Anforderungen'),
+                                        ('aktivitaet_kommunikation', 'Kommunikation'),
+                                        ('aktivitaet_mobilitaet', 'Mobilität'),
+                                        ('aktivitaet_selbstversorgung', 'Selbstversorgung'),
+                                        ('aktivitaet_haeusl_leben', 'Häusl. Leben / Haushaltsführung'),
+                                        ('aktivitaet_interpersonell', 'Interpersonelle Aktivitäten'),
+                                        ('aktivitaet_arbeit', 'Bedeutende Lebensbereiche (Arbeit)'),
+                                        ('aktivitaet_bildung', 'Erziehung / Bildung')
+                                    ] %}
+                                    {% for radio_group, label in aktivitaeten %}
+                                    <tr>
+                                        <td>{{ label }}</td>
+                                        {% set group_fields = section_fields | selectattr("radio_group", "equalto", radio_group) | list %}
+                                        {% for field in group_fields %}
+                                        <td class="radio-cell">
+                                            <input class="form-check-input" type="radio"
+                                                   name="{{ field.radio_group }}"
+                                                   id="{{ field.field_name }}"
+                                                   value="{{ field.field_name }}"
+                                                   {% if field.value == field.field_name or field.value == 'ja' %}checked{% endif %}>
+                                        </td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
                     {% for field in section_fields %}
                         {% if field.field_type.value == "text" %}
-                        <div class="mb-3 p-2 rounded {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
+                        <div class="mb-3 p-2 rounded {% if field.field_name in ['ANAMNESE', 'FUNKTIONSEINSCHRAENKUNGEN', 'THERAPIE', 'UNTERSUCHUNGSBEFUNDE', 'MED_TECHN_BEFUNDE', 'LEBENSUMSTAENDE', 'SONSTIGES', 'BEMERKUNGEN'] %}w-100{% endif %} {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
                             <label class="form-label fw-bold" for="{{ field.field_name }}">
                                 {{ field.label_de }}
                             </label>
@@ -73,9 +421,10 @@
                             {% endif %}
 
                             {% if field.field_name in long_text_fields %}
-                            <textarea class="form-control" name="{{ field.field_name }}"
+                            <textarea class="form-control w-100 {% if field.field_name in ['ANAMNESE', 'FUNKTIONSEINSCHRAENKUNGEN', 'THERAPIE', 'UNTERSUCHUNGSBEFUNDE', 'MED_TECHN_BEFUNDE', 'LEBENSUMSTAENDE', 'SONSTIGES', 'BEMERKUNGEN'] %}large-textarea{% endif %}"
+                                      name="{{ field.field_name }}"
                                       id="{{ field.field_name }}"
-                                      rows="4">{{ field.value or '' }}</textarea>
+                                      rows="{% if field.field_name in ['ANAMNESE', 'FUNKTIONSEINSCHRAENKUNGEN', 'THERAPIE', 'UNTERSUCHUNGSBEFUNDE', 'MED_TECHN_BEFUNDE', 'LEBENSUMSTAENDE', 'SONSTIGES', 'BEMERKUNGEN'] %}12{% else %}4{% endif %}">{{ field.value or '' }}</textarea>
                             {% else %}
                             <input type="text" class="form-control"
                                    name="{{ field.field_name }}"
@@ -106,8 +455,21 @@
                             </span>
                             {% endif %}
                         </div>
+
+                        {% elif field.field_type.value == "radio" %}
+                        <div class="form-check mb-2 p-2 ps-4 rounded">
+                            <input class="form-check-input" type="radio"
+                                   name="{{ field.radio_group }}"
+                                   id="{{ field.field_name }}"
+                                   value="{{ field.field_name }}"
+                                   {% if field.value == field.field_name or field.value == 'ja' %}checked{% endif %}>
+                            <label class="form-check-label" for="{{ field.field_name }}">
+                                {{ field.label_de }}
+                            </label>
+                        </div>
                         {% endif %}
                     {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
