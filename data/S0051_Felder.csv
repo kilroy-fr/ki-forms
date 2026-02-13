@@ -1,0 +1,66 @@
+field_name,type,pages,tooltip,states
+AW_1,Btn,1,Leistungen zur medizinischen Rehabilitation,Erwerbsminderungsrente|Leistungen zur Teilhabe am Arbeitsleben (LTA) |Leistungen zur medizinischen Rehabilitation|Leistungen zur onkologischen Rehabilitation|Sonstiges
+AW_2,Btn,1,Kontakte bestehen,14-t鋑ig|monatlich|seltener|w鯿hentlich
+AW_3,Btn,1,Der Antrag erfolgte auf meine Anregung,ja|nein
+DRV_Kopf_PAF_Reha_MSAT_MSNR,Tx,"1,2,3,4,5",Maßnahmeart oder Maßnahmenummer,
+FACHRICHTUNG,Tx,1,Fachrichtung,
+KENNZEICHEN,Tx,1,Kennzeichen,
+KONTAKT_LETZTER,Tx,1,Letzter Kontakt am,
+MSAT_MSNR,Tx,1,MSAT / MSNR,
+PAT_Geburtsdatum,Tx,1,Geburtsdatum,
+PAT_NAME,Tx,1,Patientin / Patient (Name, Vorname),
+PAT_PLZ_WOHNORT,Tx,1,Postleitzahl Wohnort,
+PAT_STRASSE_HNR,Tx,1,Straße, Hausnummer,
+SONSTIGES,Tx,1,Sonstiges,
+TEL,Tx,1,Telefonnummer für Rückfragen,
+VERS_GEBDAT,Tx,1,Geburtsdatum,
+VERS_NAME,Tx,1,"Name, Vorname der Person, aus deren Versicherung die Leistung beantragt wird",
+VERS_STRASSE_HNR,Tx,1,Straße, Hausnummer,
+VERS_VNR,Tx,1,Versicherungsnummer,
+VERS_WOHNORT,Tx,1,Postleitzahl Wohnort
+BEHANDLUNG_SEIT,Tx,1,Die Patientin / Der Patient befindet sich in meiner Behandlung seit dem,
+AW_4,Btn,2,Lernen und Wissensanwendung,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_5,Btn,2,Allgemeine Aufgaben und Anforderungen,Keine Angabe m鰃lich|keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_6,Btn,2,Kommunikation,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_7,Btn,2,Mobilität,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+DIAG_1,Tx,2,Diagnose 1,
+DIAG_2,Tx,2,Diagnose 2,
+DIAG_3,Tx,2,Diagnose 3,
+DIAG_4,Tx,2,Diagnose 4,
+ICD_1,Tx,2,ICD-10 zu Diagnose 1,
+ICD_2,Tx,2,ICD-10 zu Diagnose 2,
+ICD_3,Tx,2,ICD-10 zu Diagnose 3,
+ICD_4,Tx,2,ICD-10 zu Diagnose 4,
+ANAMNESE,Tx,2,Antragsrelevante Anamnese,
+FUNKTIONSEINSCHRAENKUNGEN,Tx,2,Daraus resultierende Funktionseinschränkungen,
+GROESSE_CM,Tx,3,Körpergröße (cm),
+GEWICHT_KG,Tx,3,Körpergewicht (kg),
+THERAPIE,Tx,3,Bisherige und aktuelle Therapie,
+UNTERSUCHUNGSBEFUNDE,Tx,3,Untersuchungsbefunde,
+TECHNISCHE_BEFEUNDE,Tx,3,Medizinisch-technische Befunde
+AW_8,Btn,3,Arbeit und Beschäftigung,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_9,Btn,3,Erziehung und Bildung,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_10,Btn,3,Interpersonelle Aktivitäten,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_11,Btn,3,Häusliches Leben,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+AW_12,Btn,3,Selbstversorgung,Keine Angabe m鰃lich|Keine Beeintr鋍htigungen|Personelle Hilfe n鰐ig|Einschr鋘kungen|nicht durchf黨rbar
+LEBENSUMSTAENDE,Tx,4,Beschreibung der Lebensumstände,
+SPRACHE,Tx,4,"Wenn nein, in welcher Sprache?",
+AU_SEIT,Tx,4,ja seit,
+AU_WEGEN,Tx,4,wegen
+AW_13,Btn,4,Die Patientin / der Patient ist derzeit durch mich arbeitsunfähig geschrieben,ja|nein
+AW_14,Btn,4,Befundänderung in den letzten 12 Monaten,ja|nein
+AW_15,Btn,4,Besserung seit / Verschlechterung seit,Besserung seit|Verschlechterung seit
+AW_16,Btn,4,Verständigung ist in deutscher Sprache möglich,ja|nein
+AW_17,Btn,4,Bewegungsmangel,
+AW_18,Btn,4,Übergewicht,
+AW_19,Btn,4,Drogen,
+AW_20,Btn,4,Medikamente,
+AW_21,Btn,4,Untergewicht,
+AW_22,Btn,4,Nikotin,
+AW_23,Btn,4,Alkohol,
+BEMERKUNGEN,Tx,5,Bemerkungen,
+ARZT_UNTERS_DATUM,Tx,5,"Unterschrift, Datum, Stempel, Berufsbezeichnung, ggf. Facharztbezeichnung",
+AW_24,Btn,5,Reisefähigkeit für öffentliche Verkehrsmittel besteht,ja|nein
+AW_24_1,Btn,5,mit Begleitung,
+AW_25,Btn,5,Besserung der Leistungsfähigkeit ist möglich,ja|nein|kann ich nicht beurteilen
+AW_26,Btn,5,Belastbarkeit für eine Rehabilitation besteht,ja|nein
