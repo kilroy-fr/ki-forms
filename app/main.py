@@ -23,8 +23,13 @@ app.register_blueprint(forms_bp)
 def get_version():
     version_file = Path(__file__).parent.parent / "VERSION"
     try:
-        return version_file.read_text().strip()
-    except Exception:
+        if version_file.exists():
+            return version_file.read_text(encoding='utf-8').strip()
+        else:
+            logger.warning(f"VERSION-Datei nicht gefunden: {version_file}")
+            return "0.1"
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der VERSION-Datei: {e}")
         return "0.1"
 
 @app.context_processor

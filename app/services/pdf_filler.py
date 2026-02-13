@@ -46,6 +46,9 @@ def fill_pdf(
                 elif matching.field_type == FieldType.CHECKBOX:
                     _set_checkbox_field(annot_obj, matching.value)
                     filled_count += 1
+                elif matching.field_type == FieldType.RADIO:
+                    _set_radio_field(annot_obj, matching.value, field_name)
+                    filled_count += 1
             except Exception as e:
                 logger.warning(f"Fehler beim Fuellen von '{field_name}': {e}")
 
@@ -94,3 +97,36 @@ def _get_checkbox_on_state(annot: pikepdf.Dictionary) -> str:
                 if name.lstrip("/") != "Off":
                     return name.lstrip("/")
     return "Yes"
+
+
+def _set_radio_field(annot: pikepdf.Dictionary, value: str, field_name: str):
+    """
+    Radio-Button setzen.
+    Radio-Buttons werden im PDF mit dem Feldnamen des ausgewählten Buttons markiert.
+    """
+    # Prüfen ob dieser Radio-Button ausgewählt ist
+    if value == field_name:
+        # Diesen Button aktivieren
+        on_state = _get_radio_on_state(annot, field_name)
+        annot[pikepdf.Name("/V")] = pikepdf.Name(f"/{on_state}")
+        annot[pikepdf.Name("/AS")] = pikepdf.Name(f"/{on_state}")
+    else:
+        # Diesen Button deaktivieren
+        annot[pikepdf.Name("/AS")] = pikepdf.Name("/Off")
+
+
+def _get_radio_on_state(annot: pikepdf.Dictionary, field_name: str) -> str:
+    """
+    Den 'On'-State-Namen eines Radio-Buttons ermitteln.
+    Radio-Buttons verwenden oft den Feldnamen als On-State.
+    """
+    ap = annot.get("/AP")
+    if ap is not None:
+        normal = ap.get("/N")
+        if normal is not None:
+            for key in normal.keys():
+                name = str(key)
+                if name.lstrip("/") != "Off":
+                    return name.lstrip("/")
+    # Fallback: Feldname verwenden
+    return field_name

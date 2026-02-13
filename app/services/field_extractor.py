@@ -20,7 +20,56 @@ WICHTIGE REGELN:
 4. Fuer Checkboxen antworte mit "ja" oder "nein".
 5. Fuer ICD-10-Codes gib den exakten Code an (z.B. M54.5).
 6. Antworte AUSSCHLIESSLICH im vorgegebenen JSON-Format.
-7. Bei Unsicherheit setze confidence auf "low" statt zu raten."""
+7. Bei Unsicherheit setze confidence auf "low" statt zu raten.
+
+AUSFUELLHINWEISE BEFUNDBERICHT (gemaess Rehainfo-Aerzte.de):
+
+DIAGNOSEN:
+- Fokussiere auf FUNKTIONSEINSCHRAENKUNGEN, nicht nur die Diagnose selbst
+- Beispiel: Statt "Bandscheibenvorfall" -> "schmerzhafte Bewegungseinschraenkung der LWS mit Schwaeche"
+- Primaere rehabilitationsbegrundende Diagnose an erster Stelle
+- Weitere Diagnosen nach Bedeutung ordnen
+
+ANAMNESE UND FUNKTIONSEINSCHRAENKUNGEN:
+- Detaillierte Darstellung von Beschwerden erforderlich
+- Beeintraechtigungen anhand des bio-psychosozialen WHO-Modells einschaetzen
+- Einschraenkungen sollten mindestens 6 Monate bestehen
+
+THERAPIEHISTORIE:
+- VOLLSTAENDIGE Darstellung bisheriger und aktueller Therapien
+- Angaben zu Art, Umfang, Anzahl und Dosierungen erforderlich
+
+UNTERSUCHUNGSBEFUNDE:
+- Relevante medizinisch-technische Befunde zu den Diagnosen
+- Groesse und Gewicht fuer Klinikauswahl angeben
+
+LEBENSUMSTAENDE (KONTEXTFAKTOREN):
+- Familiaere Belastungen, Pflegeverantwortung
+- Trauerfaelle, finanzielle Schwierigkeiten
+- Arbeitsplatzprobleme
+
+RISIKOFAKTOREN:
+- Gefaehrdung durch Alkohol oder andere Suchtmittel dokumentieren
+
+ARBEITSUNFAEHIGKEIT:
+- Zeitpunkt und Dauer angeben
+
+BESONDERHEITEN NACH ERKRANKUNGSGRUPPE:
+
+Onkologie:
+- Primaertherapie (Operation, Chemo, Bestrahlung) vor Antragstellung abgeschlossen oder Enddatum vermerken
+- Bei fortlaufender Chemotherapie: ausfuehrliche Begruendung und genaues Therapieschema
+
+Abhaengigkeitserkrankungen:
+- Anbindung an Suchtberatungsstelle
+- Laborwerte (Leberfunktion, CDT-Wert bei Alkohol)
+- Koerperliche und psychische Begleiterkrankungen detailliert
+- Substitutionsbehandlung vermerken
+
+Kinder und Jugendliche:
+- Aktuelle Medikationen mit Dosierung
+- Bei psychischen Erkrankungen: Schweregradeinschaetzung
+- Suizidale/selbstverletzende Tendenzen dokumentieren"""
 
 
 def _build_text_fields_prompt(
@@ -30,7 +79,7 @@ def _build_text_fields_prompt(
     """Prompt fuer Textfeld-Extraktion bauen."""
     field_descriptions = []
     for f in fields:
-        if f.field_type == FieldType.TEXT:
+        if f.field_type == FieldType.TEXT and f.extract_from_ai:
             field_descriptions.append(f'  "{f.field_name}": "{f.description}"')
 
     fields_block = ",\n".join(field_descriptions)
@@ -70,7 +119,7 @@ def _build_checkbox_prompt(
     """Prompt fuer Checkbox-Extraktion bauen."""
     checkbox_descriptions = []
     for f in fields:
-        if f.field_type == FieldType.CHECKBOX:
+        if f.field_type == FieldType.CHECKBOX and f.extract_from_ai:
             checkbox_descriptions.append(f'  "{f.field_name}": "{f.description}"')
 
     cb_block = ",\n".join(checkbox_descriptions)
@@ -147,7 +196,7 @@ def extract_fields(
     all_results: list[ExtractionResult] = []
 
     # --- Pass 1: Textfelder ---
-    text_fields = [f for f in fields if f.field_type == FieldType.TEXT]
+    text_fields = [f for f in fields if f.field_type == FieldType.TEXT and f.extract_from_ai]
     if text_fields:
         logger.info(f"Pass 1: Extrahiere {len(text_fields)} Textfelder...")
         prompt = _build_text_fields_prompt(text_fields, source_text)
@@ -160,7 +209,7 @@ def extract_fields(
             logger.error(f"Pass 1 fehlgeschlagen: {e}")
 
     # --- Pass 2: Checkboxen ---
-    checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX]
+    checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX and f.extract_from_ai]
     if checkbox_fields:
         logger.info(f"Pass 2: Extrahiere {len(checkbox_fields)} Checkboxen...")
         prompt = _build_checkbox_prompt(checkbox_fields, source_text)
