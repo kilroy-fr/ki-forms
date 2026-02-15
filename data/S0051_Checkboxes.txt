@@ -1,0 +1,125 @@
+Radiobuttongruppe AW_1:
+AW_1#0=Leistungen zur medizinischen Rehabilitation
+AW_1#1=Leistungen zur onkologischen Rehabilitation
+AW_1#2=Leistungen zur Teilhabe am Arbeitsleben (LTA)
+AW_1#3=Erwerbsminderungsrente
+AW_1#4=Sonstige Leistungen
+	wenn AW_1#4=true das Feld SONSTIGES einblenden
+
+Radiobuttongruppe AW_2:
+AW_2#0=wöchentlich
+AW_2#1=14-tägig
+AW_2#2=monatlich
+AW_2#3=seltener
+
+Radiobuttongruppe AW_3:
+AW_3#0=Antrag nicht auf meine Anregung
+AW_3#1=Antrag auf meine Anregung
+
+Radiobuttongruppe AW_4 (Lernen und Wissensanwendung):
+AW_4#0=keine Beeinträchtigungen
+AW_4#1=Einschränkungen
+AW_4#2=Personelle Hilfe nötig
+AW_4#3=nicht durchführbar
+AW_4#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_5 (Allgemeine Aufgaben und Anforderungen):
+AW_5#0=keine Beeinträchtigungen
+AW_5#1=Einschränkungen
+AW_5#2=Personelle Hilfe nötig
+AW_5#3=nicht durchführbar
+AW_5#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_6 (Kommunikation):
+AW_6#0=keine Beeinträchtigungen
+AW_6#1=Einschränkungen
+AW_6#2=Personelle Hilfe nötig
+AW_6#3=nicht durchführbar
+AW_6#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_7 (Mobilität):
+AW_7#0=keine Beeinträchtigungen
+AW_7#1=Einschränkungen
+AW_7#2=Personelle Hilfe nötig
+AW_7#3=nicht durchführbar
+AW_7#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_8 (Arbeit und Beschäftigung):
+AW_8#0=keine Beeinträchtigungen
+AW_8#1=Einschränkungen
+AW_8#2=Personelle Hilfe nötig
+AW_8#3=nicht durchführbar
+AW_8#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_9 (Erziehung / Bildung):
+AW_9#0=keine Beeinträchtigungen
+AW_9#1=Einschränkungen
+AW_9#2=Personelle Hilfe nötig
+AW_9#3=nicht durchführbar
+AW_9#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_10 (Interpersonelle Aktivitäten):
+AW_10#0=keine Beeinträchtigungen
+AW_10#1=Einschränkungen
+AW_10#2=Personelle Hilfe nötig
+AW_10#3=nicht durchführbar
+AW_10#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_11 (Häusl. Leben / Haushaltsführung):
+AW_11#0=keine Beeinträchtigungen
+AW_11#1=Einschränkungen
+AW_11#2=Personelle Hilfe nötig
+AW_11#3=nicht durchführbar
+AW_11#4=Keine Angabe möglich
+
+Radiobuttongruppe AW_12 (Selbstversorgung):
+AW_12#0=keine Beeinträchtigungen
+AW_12#1=Einschränkungen
+AW_12#2=Personelle Hilfe nötig
+AW_12#3=nicht durchführbar
+AW_12#4=Keine Angabe möglich
+
+Risikofaktoren
+AW_13=Bewegungsmangel ja|nein
+Radiobuttongruppe AW_14
+AW_14#0=Übergewicht ja|nein
+AW_14#1=Untergewicht ja|nein
+AW_15=Alkohol ja|nein
+AW_16=Drogen ja|nein
+AW_17=Medikamente ja|nein
+AW_18=Nikotin ja|nein
+AW_19=Sonstiges ja|nein
+
+Radiobuttongruppe AW_20
+AW_20#0=nein
+AW_20#1=ja
+	wenn AW_20#1=true VERS_BESSERUNG_DATUM_1 und VERS_AU_GRUND einblenden
+
+Radiobuttongruppe AW_21
+AW_21#0=nein
+AW_21#1=ja
+	wenn AW_21#1=true
+	Radiobuttongruppe AW_22 einblenden
+	AW22_#0= Besserung seit
+		wenn AW_22#0=true VERS_BESSERUNG_DATUM_2 einblenden
+	AW_22#1=Verschlechterung seit
+		wenn AW_22#1=true VERS_VERSCHLECHTERUNG_DATUM einblenden
+		
+Radiobuttongruppe AW_23
+AW_23#0=nein
+	wenn AW_23#0=true VERS_SPRACHE_23_1 einblenden
+AW_23#1=ja
+
+Radiobuttongruppe AW_24
+AW_24#0=nein
+AW_24#1=ja
+	wenn AW_24#1=true AW_24_1=ja|nein einblenden
+
+Radiobuttongruppe AW_25
+AW_25#0=nein
+AW_25#1=ja
+AW_25#2=kann ich nicht beurteilen
+
+Radiobuttongruppe AW_26
+AW_26#0=nein
+AW_26#1=ja

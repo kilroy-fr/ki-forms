@@ -27,6 +27,7 @@ class FormField:
     status: FieldStatus = FieldStatus.UNFILLED
     ai_confidence: Optional[str] = None
     radio_group: Optional[str] = None  # Gruppe für Radio-Buttons (= PDF-Feldname der Gruppe)
+    radio_group_title: Optional[str] = None  # Titel für die Radio-Button-Gruppe (nur beim ersten Element)
     pdf_state: Optional[str] = None  # Für Radio: PDF-Appearance-State bei Auswahl
     extract_from_ai: bool = True  # Ob das Feld von KI extrahiert werden soll
     conditional_on: Optional[str] = None  # Feldname, von dem dieses Feld abhängt

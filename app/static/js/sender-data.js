@@ -119,6 +119,10 @@ async function displaySenderData() {
         html += `<p><strong class="sender-value">${fullName}</strong></p>`;
     }
 
+    if (data.fachrichtung) {
+        html += `<p class="sender-value text-muted">${data.fachrichtung}</p>`;
+    }
+
     if (data.praxis) {
         html += `<p class="sender-value">${data.praxis}</p>`;
     }
@@ -226,9 +230,40 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+/**
+ * Synchronisiert die Höhe der beiden Spalten (Formularauswahl und Absender-Daten)
+ * Die rechte Spalte (Absender-Daten) wird auf die Höhe der linken Spalte (Formularauswahl) begrenzt
+ */
+function syncContainerHeights() {
+    const twoColumnLayout = document.querySelector('.two-column-layout');
+    if (!twoColumnLayout) return;
+
+    const leftCard = twoColumnLayout.querySelector('div:first-child .card');
+    const rightCard = twoColumnLayout.querySelector('div:nth-child(2) .card');
+
+    if (leftCard && rightCard) {
+        // Hole die tatsächliche Höhe der linken Card
+        const leftHeight = leftCard.offsetHeight;
+
+        // Setze die maximale Höhe der rechten Card auf die Höhe der linken Card
+        rightCard.style.maxHeight = `${leftHeight}px`;
+
+        console.log(`Container-Höhen synchronisiert: ${leftHeight}px`);
+    }
+}
+
 // Beim Laden der Seite die gespeicherten Daten anzeigen
 document.addEventListener('DOMContentLoaded', () => {
-    displaySenderData();
+    displaySenderData().then(() => {
+        // Nach dem Laden der Daten die Höhen synchronisieren
+        // Verzögerung, um sicherzustellen, dass das DOM vollständig gerendert ist
+        setTimeout(syncContainerHeights, 100);
+    });
+});
+
+// Bei Fenstergrößenänderung die Höhen neu synchronisieren
+window.addEventListener('resize', () => {
+    syncContainerHeights();
 });
 
 /**

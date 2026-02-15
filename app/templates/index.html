@@ -71,14 +71,14 @@
                 <input type="file" name="files" id="fileInput" multiple accept=".pdf"
                        class="d-none">
             </div>
-
-            <div id="fileList" class="mb-3"></div>
-
             <div class="alert alert-info d-flex align-items-center gap-2" role="alert">
                 <i class="bi bi-info-circle"></i>
                 <span>Unterstützte Formate: PDF (auch gescannte Dokumente mit OCR-Erkennung).
                 Maximal 10 Dateien, je max. 50 MB.</span>
             </div>
+
+            <div id="fileList" class="mb-3"></div>
+
 
 
             <div class="d-flex flex-wrap gap-2">
@@ -87,10 +87,10 @@
                 </button>
 
                 {% if download_url %}
-                <a href="{{ download_url }}" class="btn btn-success btn-lg" id="downloadBtn" download>
+                <a href="{{ download_url }}" class="btn btn-success btn-execute" id="downloadBtn" download>
                     <i class="bi bi-download"></i> Download
                 </a>
-                <a href="{{ download_url }}" class="btn btn-outline-secondary btn-lg" id="printBtn" target="_blank">
+                <a href="{{ download_url }}" class="btn btn-outline-secondary btn-execute" id="printBtn" target="_blank>
                     <i class="bi bi-printer"></i> Drucken
                 </a>
                 {% endif %}
@@ -108,105 +108,79 @@
         </div>
         <div class="sender-modal-body">
             <form id="senderDataForm">
-                <!-- Zeile 1: Anrede und Titel -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="anrede" class="form-label">Anrede</label>
-                        <select class="form-select" id="anrede" name="anrede">
-                            <option value="">-- Bitte wählen --</option>
-                            <option value="Herr">Herr</option>
-                            <option value="Frau">Frau</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="titel" class="form-label">Titel</label>
-                        <select class="form-select" id="titel" name="titel">
-                            <option value="">-- Kein Titel --</option>
-                            <option value="Dr. med.">Dr. med.</option>
-                        </select>
-                    </div>
-                </div>
+                <!-- Anrede -->
+                <label for="anrede" class="form-label">Anrede</label>
+                <select class="form-select" id="anrede" name="anrede">
+                    <option value="">-- Bitte wählen --</option>
+                    <option value="Herr">Herr</option>
+                    <option value="Frau">Frau</option>
+                </select>
 
-                <!-- Zeile 2: Vorname und Name -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="vorname" class="form-label">Vorname</label>
-                        <input type="text" class="form-control" id="vorname" name="vorname">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="name" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="name" name="name">
-                    </div>
-                </div>
+                <!-- Titel -->
+                <label for="titel" class="form-label">Titel</label>
+                <select class="form-select" id="titel" name="titel">
+                    <option value="">-- Kein Titel --</option>
+                    <option value="Dr. med.">Dr. med.</option>
+                </select>
 
-                <!-- Zeile 3: Praxis -->
-                <div class="mb-3">
-                    <label for="praxis" class="form-label">Praxis</label>
-                    <input type="text" class="form-control" id="praxis" name="praxis">
-                </div>
+                <!-- Vorname -->
+                <label for="vorname" class="form-label">Vorname</label>
+                <input type="text" class="form-control" id="vorname" name="vorname">
 
-                <!-- Zeile 4: Straße und Hausnummer -->
-                <div class="row mb-3">
-                    <div class="col-md-8">
-                        <label for="strasse" class="form-label">Straße</label>
-                        <input type="text" class="form-control" id="strasse" name="strasse">
-                    </div>
-                    <div class="col-md-4">
-                        <label for="hausnummer" class="form-label">Hausnummer</label>
-                        <input type="text" class="form-control" id="hausnummer" name="hausnummer">
-                    </div>
-                </div>
+                <!-- Name -->
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" name="name">
 
-                <!-- Zeile 5: PLZ und Ort -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label for="plz" class="form-label">PLZ</label>
-                        <input type="text" class="form-control" id="plz" name="plz" maxlength="5" pattern="\d{5}">
-                    </div>
-                    <div class="col-md-8">
-                        <label for="ort" class="form-label">Ort</label>
-                        <input type="text" class="form-control" id="ort" name="ort">
-                    </div>
-                </div>
+                <!-- Fachrichtung -->
+                <label for="fachrichtung" class="form-label">Fachrichtung</label>
+                <input type="text" class="form-control" id="fachrichtung" name="fachrichtung" placeholder="z.B. Facharzt für Innere Medizin">
 
-                <!-- Zeile 6: Telefon -->
-                <div class="mb-3">
-                    <label for="telefon" class="form-label">Telefon</label>
-                    <input type="tel" class="form-control" id="telefon" name="telefon">
-                </div>
+                <!-- Praxis -->
+                <label for="praxis" class="form-label">Praxis</label>
+                <input type="text" class="form-control" id="praxis" name="praxis">
 
-                <!-- Zeile 7: Email -->
-                <div class="mb-3">
-                    <label for="email" class="form-label">E-Mail</label>
-                    <input type="email" class="form-control" id="email" name="email">
-                </div>
+                <!-- Straße -->
+                <label for="strasse" class="form-label">Straße</label>
+                <input type="text" class="form-control" id="strasse" name="strasse">
 
-                <!-- Bankdaten -->
+                <!-- Hausnummer -->
+                <label for="hausnummer" class="form-label">Hausnummer</label>
+                <input type="text" class="form-control" id="hausnummer" name="hausnummer">
+
+                <!-- PLZ -->
+                <label for="plz" class="form-label">PLZ</label>
+                <input type="text" class="form-control" id="plz" name="plz" maxlength="5" pattern="\d{5}">
+
+                <!-- Ort -->
+                <label for="ort" class="form-label">Ort</label>
+                <input type="text" class="form-control" id="ort" name="ort">
+
+                <!-- Telefon -->
+                <label for="telefon" class="form-label">Telefon</label>
+                <input type="tel" class="form-control" id="telefon" name="telefon">
+
+                <!-- E-Mail -->
+                <label for="email" class="form-label">E-Mail</label>
+                <input type="email" class="form-control" id="email" name="email">
+
+                <!-- Bankdaten Überschrift -->
                 <h5 class="mt-4 mb-3">Bankdaten</h5>
 
-                <!-- Zeile 8: Kontoinhaber -->
-                <div class="mb-3">
-                    <label for="kontoinhaber" class="form-label">Kontoinhaber</label>
-                    <input type="text" class="form-control" id="kontoinhaber" name="kontoinhaber">
-                </div>
+                <!-- Kontoinhaber -->
+                <label for="kontoinhaber" class="form-label">Kontoinhaber</label>
+                <input type="text" class="form-control" id="kontoinhaber" name="kontoinhaber">
 
-                <!-- Zeile 9: IBAN -->
-                <div class="mb-3">
-                    <label for="iban" class="form-label">IBAN</label>
-                    <input type="text" class="form-control" id="iban" name="iban">
-                </div>
+                <!-- IBAN -->
+                <label for="iban" class="form-label">IBAN</label>
+                <input type="text" class="form-control" id="iban" name="iban">
 
-                <!-- Zeile 10: BIC und Kreditinstitut -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label for="bic" class="form-label">BIC</label>
-                        <input type="text" class="form-control" id="bic" name="bic">
-                    </div>
-                    <div class="col-md-8">
-                        <label for="kreditinstitut" class="form-label">Kreditinstitut</label>
-                        <input type="text" class="form-control" id="kreditinstitut" name="kreditinstitut">
-                    </div>
-                </div>
+                <!-- BIC -->
+                <label for="bic" class="form-label">BIC</label>
+                <input type="text" class="form-control" id="bic" name="bic">
+
+                <!-- Kreditinstitut -->
+                <label for="kreditinstitut" class="form-label">Kreditinstitut</label>
+                <input type="text" class="form-control" id="kreditinstitut" name="kreditinstitut">
 
                 <!-- Buttons -->
                 <div class="d-flex justify-content-end gap-2 mt-4">
