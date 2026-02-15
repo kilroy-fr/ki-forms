@@ -14,6 +14,64 @@ forms_bp = Blueprint("forms", __name__)
 sessions: dict = {}
 
 
+def _normalize_radio_text(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+
+    replacements = {
+        "Ã¤": "ä",
+        "Ã¶": "ö",
+        "Ã¼": "ü",
+        "ÃŸ": "ß",
+        "鋍": "ä",
+        "鋘": "ä",
+        "鰐": "ö",
+        "黨": "ü",
+        "鰃": "ö",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+
+    return " ".join(text.split()).casefold()
+
+
+def _canonical_radio_token(normalized_text: str) -> str:
+    if not normalized_text:
+        return ""
+
+    compact = "".join(ch for ch in normalized_text if ch.isalnum() or ch.isspace())
+    compact = " ".join(compact.split())
+
+    if compact in {"ja", "yes", "true", "1", "on"}:
+        return "yes"
+    if compact in {"nein", "no", "false", "0", "off"}:
+        return "no"
+
+    if "keine angabe" in compact:
+        return "keine_angabe"
+    if "personelle" in compact and "hilfe" in compact:
+        return "personelle_hilfe"
+    if "nicht" in compact and "durchf" in compact:
+        return "nicht_durchfuehrbar"
+    if "einschr" in compact:
+        return "einschraenkungen"
+    if "keine" in compact and ("beeintr" in compact or "beein" in compact):
+        return "keine_beeintraechtigungen"
+
+    return compact
+
+
+def _radio_values_match(a: str | None, b: str | None) -> bool:
+    a_norm = _normalize_radio_text(a)
+    b_norm = _normalize_radio_text(b)
+    if not a_norm or not b_norm:
+        return False
+    if a_norm == b_norm:
+        return True
+    return _canonical_radio_token(a_norm) == _canonical_radio_token(b_norm)
+
+
 def _get_form_registry():
     """Lazy import um zirkulaere Imports zu vermeiden."""
     from app.form_definitions.s0051 import S0051_DEFINITION
@@ -118,6 +176,54 @@ def process_upload(form_id):
             field_copy.ai_confidence = r.confidence
         fields.append(field_copy)
 
+    # Sender-Daten laden und Behandlungsfelder automatisch befüllen
+    if SENDER_DATA_FILE.exists():
+        try:
+            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+                sender_data = json.load(f)
+
+            # Name der Ärztin/des Arztes zusammensetzen: Titel + Vorname + Name
+            arzt_name_parts = []
+            if sender_data.get("titel"):
+                arzt_name_parts.append(sender_data["titel"])
+            if sender_data.get("vorname"):
+                arzt_name_parts.append(sender_data["vorname"])
+            if sender_data.get("name"):
+                arzt_name_parts.append(sender_data["name"])
+            arzt_name = " ".join(arzt_name_parts)
+
+            # Aktuelles Datum im Format TT.MM.JJJJ
+            from datetime import datetime
+            current_date = datetime.now().strftime("%d.%m.%Y")
+
+            # Unterschrift-Feld: "Name, Datum"
+            arzt_unters_value = ""
+            if arzt_name:
+                arzt_unters_value = f"{arzt_name}, {current_date}"
+
+            # Felder befüllen
+            for field in fields:
+                if field.field_name == "NAME_DER_ÄRZTIN" and arzt_name:
+                    field.value = arzt_name
+                    field.status = FieldStatus.FILLED
+                    field.ai_confidence = "high"
+                elif field.field_name == "FACHRICHTUNG" and sender_data.get("fachrichtung"):
+                    field.value = sender_data["fachrichtung"]
+                    field.status = FieldStatus.FILLED
+                    field.ai_confidence = "high"
+                elif field.field_name == "TELEFONNUMMER_FÜR_RÜCKFRAGEN" and sender_data.get("telefon"):
+                    field.value = sender_data["telefon"]
+                    field.status = FieldStatus.FILLED
+                    field.ai_confidence = "high"
+                elif field.field_name == "ARZT_UNTERS_DATUM" and arzt_unters_value:
+                    field.value = arzt_unters_value
+                    field.status = FieldStatus.FILLED
+                    field.ai_confidence = "high"
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Fehler beim Befüllen der Behandlungsfelder mit Sender-Daten: {e}")
+
     # Session speichern
     sessions[session_id] = {
         "form_id": form_id,
@@ -152,20 +258,20 @@ def review_page(form_id, session_id):
         1: "Behandlung",
         2: "Diagnosen",
         3: "Anamnese",
-        4: "Funktionseinschraenkungen",
-        5: "Aktivitaeten und Teilhabe",
+        4: "Funktionseinschränkungen",
+        5: "Aktivitäten und Teilhabe",
         6: "Therapie",
         7: "Untersuchungsbefunde",
         8: "Medizinisch-technische Befunde",
-        9: "Lebensumstaende",
+        9: "Lebensumstände",
         10: "Risikofaktoren",
-        11: "Arbeitsunfaehigkeit / Prognose",
+        11: "Arbeitsunfähigkeit / Prognose",
         12: "Bemerkungen",
     }
 
     long_text_fields = {
         "ANAMNESE", "FUNKTIONSEINSCHRAENKUNGEN", "THERAPIE",
-        "UNTERSUCHUNGSBEFUNDE", "TECHNISCHE_BEFEUNDE", "LEBENSUMSTAENDE",
+        "UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE", "LEBENSUMSTAENDE",
         "BEMERKUNGEN",
     }
 
@@ -194,13 +300,65 @@ def generate_pdf(form_id, session_id):
 
     # Formulardaten vom User uebernehmen
     fields = session["fields"]
+
+    # DEBUG: Zeige alle Formular-Werte
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.debug("=" * 80)
+    logger.debug("Verarbeite Formular-Daten")
+    logger.debug(f"Anzahl Felder in request.form: {len(request.form)}")
+
+    # Alle Formular-Daten nach Typ gruppieren
+    radio_values = {k: v for k, v in request.form.items() if k.startswith('AW_')}
+    text_values = {k: v for k, v in request.form.items() if not k.startswith('AW_')}
+
+    logger.debug(f"Radio/Checkbox-Werte (AW_*): {len(radio_values)}")
+    if radio_values:
+        for key, value in sorted(radio_values.items()):
+            logger.debug(f"  {key} = {value}")
+    else:
+        logger.warning("KEINE Radio-Button-Werte (AW_*) in request.form gefunden!")
+
+    logger.debug(f"Text-Felder: {len(text_values)}")
+    if text_values:
+        for key, value in sorted(text_values.items()):
+            # Nur erste 50 Zeichen loggen
+            value_preview = (value[:50] + '...') if len(value) > 50 else value
+            logger.debug(f"  {key} = {value_preview}")
+
+    logger.debug("=" * 80)
+
+    radio_fields_set = 0
     for field in fields:
         if field.field_type == FieldType.CHECKBOX:
             field.value = "ja" if field.field_name in request.form else "nein"
         elif field.field_type == FieldType.RADIO:
             # Radio-Button: Prüfe, ob dieser Radio-Button in der Gruppe ausgewählt wurde
             selected_value = request.form.get(field.radio_group)
-            field.value = "ja" if selected_value == field.field_name else "nein"
+            if selected_value is not None:
+                field.value = "ja" if selected_value == field.field_name else "nein"
+            else:
+                current_value = (field.value or "").strip()
+                current_norm = _normalize_radio_text(current_value)
+                prefilled_selected = current_norm in {
+                    "ja",
+                    "yes",
+                    "true",
+                    "1",
+                    "on",
+                    _normalize_radio_text(field.field_name),
+                    _normalize_radio_text(field.pdf_state),
+                }
+                if not prefilled_selected:
+                    prefilled_selected = (
+                        _radio_values_match(current_value, field.field_name) or
+                        _radio_values_match(current_value, field.pdf_state)
+                    )
+                field.value = "ja" if prefilled_selected else "nein"
+            if field.value == "ja":
+                radio_fields_set += 1
+                logger.debug(f"Radio {field.radio_group} -> {field.field_name} (pdf_state={field.pdf_state})")
         else:
             submitted_value = request.form.get(field.field_name)
             if submitted_value is not None:
@@ -208,12 +366,66 @@ def generate_pdf(form_id, session_id):
         if field.value and field.value not in ("", "nein"):
             field.status = FieldStatus.MANUAL
 
+    logger.debug(f"{radio_fields_set} Radio-Buttons auf 'ja' gesetzt")
+    logger.debug("=" * 80)
+
+    # Automatische Wertkopie: MSAT_MSNR → DRV_Kopf_PAF_Reha_MSAT_MSNR
+    fields_by_name = {f.field_name: f for f in fields}
+
+    def _copy_if_value(source_name: str, target_name: str):
+        source = fields_by_name.get(source_name)
+        target = fields_by_name.get(target_name)
+        if source and target and source.value:
+            target.value = source.value
+            target.status = FieldStatus.MANUAL
+
+    # MSAT/MSNR -> Kopfzeile
+    _copy_if_value("MSAT_MSNR", "DRV_Kopf_PAF_Reha_MSAT_MSNR")
+
+    # Legacy-Feldnamen / UI-Hilfsfelder -> echte PDF-Felder
+    _copy_if_value("VERS_VNR", "PAF_VSNR_trim")
+    _copy_if_value("KENNZEICHEN", "PAF_AIGR")
+    _copy_if_value("PAT_STRASSE_HNR", "VERS_STRASSE_HNR")
+    _copy_if_value("PAT_PLZ", "VERS_PLZ")
+    _copy_if_value("PAT_WOHNORT", "VERS_WOHNORT")
+
+    # Legacy kombiniertes Feld "PLZ, Wohnort" aufteilen
+    legacy_plz_ort = fields_by_name.get("PAT_PLZ_WOHNORT")
+    if legacy_plz_ort and legacy_plz_ort.value:
+        raw = legacy_plz_ort.value.strip()
+        if raw:
+            parts = raw.split(maxsplit=1)
+            if parts and parts[0].isdigit() and len(parts[0]) >= 4:
+                plz_target = fields_by_name.get("VERS_PLZ")
+                if plz_target and not (plz_target.value or "").strip():
+                    plz_target.value = parts[0]
+                    plz_target.status = FieldStatus.MANUAL
+                if len(parts) > 1:
+                    ort_target = fields_by_name.get("VERS_WOHNORT")
+                    if ort_target and not (ort_target.value or "").strip():
+                        ort_target.value = parts[1]
+                        ort_target.status = FieldStatus.MANUAL
+            else:
+                ort_target = fields_by_name.get("VERS_WOHNORT")
+                if ort_target and not (ort_target.value or "").strip():
+                    ort_target.value = raw
+                    ort_target.status = FieldStatus.MANUAL
+
     # PDF erzeugen
     template_path = settings.FORM_TEMPLATE_DIR / f"{form_id}.pdf"
     output_path = settings.OUTPUT_DIR / f"{form_id}_{session_id}.pdf"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     pdf_filler.fill_pdf(template_path, output_path, fields)
+
+    # Zusaetzliche stabile Debug-/Ablage-Datei ohne Session-ID
+    # (hilft bei manueller Pruefung im Output-Ordner)
+    try:
+        stable_output_path = settings.OUTPUT_DIR / f"{form_id}_ausgefuellt.pdf"
+        shutil.copy2(output_path, stable_output_path)
+        logger.debug(f"Stabile Output-Datei aktualisiert: {stable_output_path}")
+    except Exception as e:
+        logger.warning(f"Konnte stabile Output-Datei nicht aktualisieren: {e}")
 
     return redirect(url_for("forms.index", form=form_id, session=session_id))
 

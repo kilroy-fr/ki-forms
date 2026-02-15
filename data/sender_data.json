@@ -1,8 +1,9 @@
 {
   "anrede": "Herr",
   "titel": "",
-  "vorname": "cc",
-  "name": "Jan Overmans",
+  "vorname": "Jan",
+  "name": "Overmans",
+  "fachrichtung": "Hausärztlich tätiger Internist",
   "praxis": "overmans + kadnikov",
   "strasse": "Jakobsgäßchen",
   "hausnummer": "3",
@@ -13,5 +14,5 @@
   "kontoinhaber": "Jan Overmans",
   "iban": "DE71300606010023681333",
   "bic": "GENODEF1ETK",
-  "kreditinstitut": "Et"
+  "kreditinstitut": "Ethikbank"
 }

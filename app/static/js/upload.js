@@ -20,6 +20,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 thumbnail.src = "/form/" + formId + "/thumbnail";
                 thumbnailContainer.classList.remove("d-none");
                 uploadForm.action = "/form/" + formId + "/process";
+
+                // Ollama-Warmup starten, sobald ein Formular ausgewählt wird
+                fetch('/api/warmup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Ollama Warmup gestartet');
+                    }
+                })
+                .catch(error => {
+                    console.warn('Warmup-Request fehlgeschlagen:', error);
+                });
             } else {
                 thumbnailContainer.classList.add("d-none");
                 thumbnail.src = "";
@@ -105,14 +121,18 @@ document.addEventListener("DOMContentLoaded", function () {
             var file = selectedFiles[i];
             var sizeMB = (file.size / (1024 * 1024)).toFixed(1);
             var item = document.createElement("div");
-            item.className = "d-flex align-items-center p-2 mb-2 bg-dark border border-secondary rounded";
+            item.className = "file-list-item";
             item.innerHTML =
-                '<i class="bi bi-file-earmark-pdf text-danger me-2 fs-5"></i>' +
-                '<span class="flex-grow-1">' + file.name + "</span>" +
-                '<span class="text-muted small me-3">' + sizeMB + " MB</span>" +
+                '<div class="file-list-icon">' +
+                '<i class="bi bi-file-earmark-pdf"></i>' +
+                '</div>' +
+                '<div class="file-list-name" title="' + file.name + '">' + file.name + '</div>' +
+                '<div class="file-list-size">' + sizeMB + ' MB</div>' +
+                '<div class="file-list-delete">' +
                 '<button type="button" class="btn btn-sm btn-outline-danger border-0" data-index="' + i + '" title="Datei entfernen">' +
                 '<i class="bi bi-trash"></i>' +
-                '</button>';
+                '</button>' +
+                '</div>';
             fileList.appendChild(item);
         }
 
