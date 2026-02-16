@@ -50,7 +50,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Geburtsdatum (Versicherte/r)",
         section=0,
-        description="Geburtsdatum der versicherten Person (Format: TTMMJJJJ ohne Punkte)",
+        description="Geburtsdatum der versicherten Person (Format: TT.MM.JJJJ)",
     ),
     FormField(
         field_name="VERS_STRASSE_HNR",
@@ -85,7 +85,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Geburtsdatum (Patient/in)",
         section=0,
-        description="Geburtsdatum der Patientin / des Patienten (Format: TTMMJJJJ ohne Punkte)",
+        description="Geburtsdatum der Patientin / des Patienten (Format: TT.MM.JJJJ)",
     ),
     FormField(
         field_name="PAT_STRASSE_HNR",

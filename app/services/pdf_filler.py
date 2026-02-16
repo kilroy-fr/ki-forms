@@ -30,11 +30,7 @@ def fill_pdf(
     for f in fields:
         if f.field_type == FieldType.TEXT:
             if f.value:
-                value = f.value
-                # Für VERS_GEBDAT und PAT_Geburtsdatum: Punkte aus Datum entfernen (TTMMJJJJ statt TT.MM.JJJJ)
-                if f.field_name in ("VERS_GEBDAT", "PAT_Geburtsdatum"):
-                    value = value.replace(".", "")
-                text_map[f.field_name] = value
+                text_map[f.field_name] = _normalize_text_value_for_field(f.field_name, f.value)
         elif f.field_type == FieldType.CHECKBOX:
             if f.value:
                 checkbox_map[f.field_name] = f.value
@@ -186,6 +182,8 @@ def _fill_text_in_tree(field_ref, text_map: dict[str, str], pdf: pikepdf.Pdf, pa
 
     if name and name in text_map and (ft_name == "/Tx" or kids):
         value = text_map[name]
+        field_ff = field_obj.get("/Ff")
+        field_max_len = field_obj.get("/MaxLen")
         field_obj[pikepdf.Name("/V")] = pikepdf.String(value)
 
         if kids:
@@ -194,9 +192,9 @@ def _fill_text_in_tree(field_ref, text_map: dict[str, str], pdf: pikepdf.Pdf, pa
                 if not isinstance(kid, pikepdf.Dictionary):
                     continue
                 kid[pikepdf.Name("/V")] = pikepdf.String(value)
-                _set_text_widget_appearance(pdf, kid, value)
+                _set_text_widget_appearance(pdf, kid, value, field_ff=field_ff, field_max_len=field_max_len)
         else:
-            _set_text_widget_appearance(pdf, field_obj, value)
+            _set_text_widget_appearance(pdf, field_obj, value, field_ff=field_ff, field_max_len=field_max_len)
 
         count += 1
 
@@ -312,7 +310,13 @@ def _set_text_field(pdf: pikepdf.Pdf, annot: pikepdf.Dictionary, value: str):
     _set_text_widget_appearance(pdf, annot, value)
 
 
-def _set_text_widget_appearance(pdf: pikepdf.Pdf, annot: pikepdf.Dictionary, value: str) -> None:
+def _set_text_widget_appearance(
+    pdf: pikepdf.Pdf,
+    annot: pikepdf.Dictionary,
+    value: str,
+    field_ff=None,
+    field_max_len=None,
+) -> None:
     """Erzeugt einen statischen /AP-/N-Stream fuer ein Text-Widget."""
     rect = annot.get("/Rect")
     if not isinstance(rect, pikepdf.Array) or len(rect) != 4:
@@ -328,8 +332,23 @@ def _set_text_widget_appearance(pdf: pikepdf.Pdf, annot: pikepdf.Dictionary, val
     font_size = max(7.0, min(11.0, height * 0.6))
     leading = font_size * 1.15
     max_lines = max(1, int(height // leading))
-    lines = (value or "").splitlines() or [value or ""]
-    lines = lines[:max_lines]
+
+    ff_value = _to_int_or_default(annot.get("/Ff"), 0)
+    if ff_value == 0 and field_ff is not None:
+        ff_value = _to_int_or_default(field_ff, 0)
+    max_len = _to_int_or_default(annot.get("/MaxLen"), None)
+    if max_len is None and field_max_len is not None:
+        max_len = _to_int_or_default(field_max_len, None)
+
+    is_multiline = bool(ff_value & (1 << 12))
+    is_comb = bool(ff_value & (1 << 24)) and max_len and max_len > 0
+
+    if is_comb:
+        lines = []
+    elif is_multiline:
+        lines = _wrap_text_lines(value or "", width - 4.0, font_size)[:max_lines]
+    else:
+        lines = _wrap_text_lines(value or "", width - 4.0, font_size)[:1]
 
     parts = [
         "q",
@@ -337,12 +356,28 @@ def _set_text_widget_appearance(pdf: pikepdf.Pdf, annot: pikepdf.Dictionary, val
         f"/F0 {font_size:.2f} Tf",
         "0 g",
     ]
-    y = height - font_size - 1.0
-    for line in lines:
-        literal = _pdf_literal_string(line)
-        parts.append(f"1 0 0 1 2 {y:.3f} Tm")
-        parts.append(f"({literal}) Tj")
-        y -= leading
+
+    if is_comb:
+        text = re.sub(r"\s+", "", value or "")
+        if max_len:
+            text = text[:max_len]
+        cell_width = width / float(max_len or 1)
+        baseline_y = max(1.0, (height - font_size) / 2.0)
+        for idx, ch in enumerate(text):
+            ch_width = _approx_text_width(ch, font_size)
+            cell_x = idx * cell_width
+            text_x = cell_x + max(0.0, (cell_width - ch_width) / 2.0)
+            literal = _pdf_literal_string(ch)
+            parts.append(f"1 0 0 1 {text_x:.3f} {baseline_y:.3f} Tm")
+            parts.append(f"({literal}) Tj")
+    else:
+        y = height - font_size - 1.0
+        for line in lines:
+            literal = _pdf_literal_string(line)
+            parts.append(f"1 0 0 1 2 {y:.3f} Tm")
+            parts.append(f"({literal}) Tj")
+            y -= leading
+
     parts.extend(["ET", "Q"])
     content = ("\n".join(parts) + "\n").encode("ascii", errors="ignore")
 
@@ -382,6 +417,99 @@ def _pdf_literal_string(text: str) -> str:
     return "".join(out)
 
 
+
+def _to_int_or_default(value, default):
+    """Konvertiert PDF-Zahlen robust nach int, sonst default."""
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _approx_text_width(text: str, font_size: float) -> float:
+    """Einfache Breiten-Schaetzung fuer Helvetica zur Zeilenumbruch-Logik."""
+    if not text:
+        return 0.0
+    total = 0.0
+    for ch in text:
+        if ch in "il.,:;|!'` ":
+            factor = 0.28
+        elif ch in "mwMW@#%&":
+            factor = 0.86
+        else:
+            factor = 0.56
+        total += factor * font_size
+    return total
+
+
+def _split_long_token(token: str, max_width: float, font_size: float) -> list[str]:
+    """Bricht lange Woerter hart um, falls sie nicht in eine Zeile passen."""
+    if not token:
+        return [""]
+    out: list[str] = []
+    current = ""
+    for ch in token:
+        candidate = current + ch
+        if current and _approx_text_width(candidate, font_size) > max_width:
+            out.append(current)
+            current = ch
+        else:
+            current = candidate
+    if current:
+        out.append(current)
+    return out or [token]
+
+
+def _wrap_text_lines(text: str, max_width: float, font_size: float) -> list[str]:
+    """Text in Zeilen umbrechen (inkl. harter Umbruch bei zu langen Tokens)."""
+    if max_width <= 1:
+        return [text or ""]
+
+    paragraphs = (text or "").replace("\r", "").split("\n")
+    lines: list[str] = []
+
+    for para in paragraphs:
+        words = para.split()
+        if not words:
+            lines.append("")
+            continue
+
+        current = ""
+        for word in words:
+            if _approx_text_width(word, font_size) > max_width:
+                chunks = _split_long_token(word, max_width, font_size)
+                if current:
+                    lines.append(current)
+                    current = ""
+                lines.extend(chunks[:-1])
+                current = chunks[-1]
+                continue
+
+            candidate = word if not current else f"{current} {word}"
+            if _approx_text_width(candidate, font_size) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+
+        if current or not words:
+            lines.append(current)
+
+    return lines or [""]
+
+
+def _normalize_text_value_for_field(field_name: str, value: str) -> str:
+    """Feldspezifische Normalisierung fuer problematische Textfelder."""
+    text = (value or "").strip()
+
+    if field_name in ("VERS_GEBDAT", "PAT_Geburtsdatum"):
+        return re.sub(r"\D", "", text)[:8]
+
+    if re.fullmatch(r"VERS_DIAGNOSESCH_[1-4]", field_name or ""):
+        return re.sub(r"[^A-Za-z0-9]", "", text).upper()[:5]
+
+    return text
 def _set_checkbox_field(annot: pikepdf.Dictionary, value: str):
     """Checkbox setzen. Wert 'ja' = angekreuzt, sonst nicht."""
     if value.lower() in ("ja", "yes", "true", "1", "on"):
