@@ -182,12 +182,18 @@ body {
 .field-unfilled {
     border-left: 4px solid #ffc107;
     padding-left: 1rem;
-    background-color: rgba(255, 193, 7, 0.08);
+    background-color: rgba(255, 193, 7, 0.15);
 }
 
 .field-filled {
     border-left: 4px solid #10b981;
     padding-left: 1rem;
+}
+
+/* Eingabefelder in unfilled-Feldern deutlicher hervorheben */
+.field-unfilled .form-control:not(:focus) {
+    background-color: rgba(255, 193, 7, 0.08);
+    border-color: rgba(255, 193, 7, 0.4);
 }
 
 /* ===== KI-Konfidenz ===== */

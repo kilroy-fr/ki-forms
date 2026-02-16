@@ -49,3 +49,21 @@ Die tatsächlichen On-State-Namen im PDF (ermittelt mit `extract_radio_states.py
 | AW_14 | "Übergewicht", "Untergewicht" |
 | AW_20-AW_26 | "nein", "ja" (AW_25 zusätzlich: "kann ich nicht beurteilen") |
 | AW_22 | "Besserung", "Verschlechterung" |
+
+## Modellvergleich (A/B-Test)
+
+Fuer einen objektiven Vergleich der Extraktionsmodelle:
+
+1. Beispiel-Quelldaten: `data/benchmark_s0051_source.txt`
+2. Gold-Referenz: `data/benchmark_s0051_gold.json`
+3. Benchmark-Skript: `benchmark_models.py`
+
+Beispielaufruf:
+
+```bash
+python benchmark_models.py --models qwen2.5:14b qwen3:14b llama3.1:8b --runs 3
+```
+
+Ergebnis:
+- Konsolenausgabe mit Ranking (Score + Laufzeit)
+- Detail-JSON in `output/model_benchmark_s0051.json`

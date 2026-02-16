@@ -86,12 +86,14 @@ def index():
     session_id = request.args.get("session")
     form_id = request.args.get("form")
     download_url = None
+    pdf_filename = None
     if session_id and form_id:
         output_path = settings.OUTPUT_DIR / f"{form_id}_{session_id}.pdf"
         if output_path.exists():
             download_url = url_for("forms.download_file", form_id=form_id, session_id=session_id)
+            pdf_filename = f"{form_id}_ausgefuellt.pdf"
     return render_template("index.html", forms=_get_form_registry(),
-                           download_url=download_url, completed_form=form_id if download_url else None)
+                           download_url=download_url, pdf_filename=pdf_filename, completed_form=form_id if download_url else None)
 
 
 @forms_bp.route("/form/<form_id>/thumbnail")
@@ -223,6 +225,15 @@ def process_upload(form_id):
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Fehler beim Befüllen der Behandlungsfelder mit Sender-Daten: {e}")
+
+    # Automatische Wertkopie: PAT_NAME -> VERS_NAME (für Review-Anzeige)
+    fields_by_name = {f.field_name: f for f in fields}
+    pat_name = fields_by_name.get("PAT_NAME")
+    vers_name = fields_by_name.get("VERS_NAME")
+    if pat_name and vers_name and pat_name.value and not vers_name.value:
+        vers_name.value = pat_name.value
+        vers_name.status = FieldStatus.FILLED
+        vers_name.ai_confidence = pat_name.ai_confidence
 
     # Session speichern
     sessions[session_id] = {
@@ -385,6 +396,7 @@ def generate_pdf(form_id, session_id):
     # Legacy-Feldnamen / UI-Hilfsfelder -> echte PDF-Felder
     _copy_if_value("VERS_VNR", "PAF_VSNR_trim")
     _copy_if_value("KENNZEICHEN", "PAF_AIGR")
+    _copy_if_value("PAT_NAME", "VERS_NAME")
     _copy_if_value("PAT_STRASSE_HNR", "VERS_STRASSE_HNR")
     _copy_if_value("PAT_PLZ", "VERS_PLZ")
     _copy_if_value("PAT_WOHNORT", "VERS_WOHNORT")

@@ -90,7 +90,8 @@ def chat_completion(
         "stream": True,
         "options": {
             "temperature": temperature,
-            "num_predict": 4096,
+            "num_predict": 16384,  # Explizit hoher Wert für längere Antworten
+            "num_ctx": 32768,      # Größeres Context-Fenster für längere Antworten
         },
     }
 
