@@ -85,19 +85,33 @@
                 <button type="submit" class="btn btn-primary btn-execute" id="submitBtn" disabled>
                     <i class="bi bi-cpu"></i> Ausführen
                 </button>
-
-                {% if download_url %}
-                <a href="{{ download_url }}" class="btn btn-success btn-execute" id="downloadBtn" download>
-                    <i class="bi bi-download"></i> Download
-                </a>
-                <a href="{{ download_url }}" class="btn btn-outline-secondary btn-execute" id="printBtn" target="_blank>
-                    <i class="bi bi-printer"></i> Drucken
-                </a>
-                {% endif %}
             </div>
         </form>
     </div>
 </div>
+
+<!-- Container 3: Download -->
+{% if download_url %}
+<div class="card shadow-sm mb-4" id="downloadSection" style="margin-top: 2rem;">
+    <div class="card-body">
+        <h2 class="card-title mb-3">Generiertes Formular</h2>
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: #111827; border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="bi bi-file-pdf text-danger" style="font-size: 2rem;"></i>
+                <span style="color: #f9fafb; font-weight: 500; font-size: 1.1rem;">{{ pdf_filename or 'ausgefuelltes_formular.pdf' }}</span>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ download_url }}" class="btn btn-success btn-execute" id="downloadBtn" download>
+                <i class="bi bi-download"></i> Download
+            </a>
+            <a href="{{ download_url }}" class="btn btn-outline-secondary btn-execute" id="printBtn" target="_blank">
+                <i class="bi bi-printer"></i> Drucken
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal für Absender-Daten -->
 <div class="sender-modal-overlay d-none" id="senderModal">

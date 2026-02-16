@@ -8,26 +8,29 @@
         min-height: 300px !important;
         width: 100% !important;
     }
+    /* Datumsfelder schmäler machen */
+    .date-field {
+        max-width: 150px !important;
+    }
+    /* Validierungsfehler-Stil */
+    .date-field.invalid {
+        border-color: #dc3545 !important;
+        background-color: #2c1a1a !important;
+    }
+    .date-error {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    .date-error.show {
+        display: block;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <h2>{{ form.form_id }} &mdash; Felder prüfen und ergänzen</h2>
-
-<div class="alert alert-info d-flex align-items-center mb-4">
-    <i class="bi bi-robot fs-4 me-3"></i>
-    <div>
-        <strong>{{ filled_count }}</strong> von <strong>{{ total_count }}</strong>
-        Feldern automatisch ausgefüllt.
-        {% if unfilled_count > 0 %}
-        <span class="text-warning fw-bold">
-            {{ unfilled_count }} Felder benötigen Ihre Eingabe.
-        </span>
-        {% else %}
-        <span class="text-success fw-bold">Alle Felder ausgefüllt!</span>
-        {% endif %}
-    </div>
-</div>
 
 <form action="/form/{{ form.form_id }}/generate/{{ session_id }}" method="post">
     <div class="accordion" id="formSections">
@@ -57,10 +60,10 @@
                     {% if section_num == 0 %}
                         {# Kopfdaten: Gemischtes Layout #}
                         <style>
-                            /* Zweispaltiges Grid für erste Felder */
+                            /* Dreispaltiges Grid für erste Felder: 50%-25%-25% */
                             .kopfdaten-grid-top {
                                 display: grid;
-                                grid-template-columns: 1fr 1fr;
+                                grid-template-columns: 2fr 1fr 1fr;
                                 gap: 1rem 2rem;
                                 margin-bottom: 1.5rem;
                             }
@@ -174,7 +177,7 @@
                         {# Gruppe 2: Label links, Wert rechts - Versicherte/r und Patient/in #}
                         <div class="kopfdaten-two-column">
                             {% for field in section_fields %}
-                                {% if field.field_name in ["VERS_NAME", "VERS_GEBDAT", "PAT_NAME", "PAT_Geburtsdatum", "PAT_STRASSE_HNR", "PAT_PLZ", "PAT_WOHNORT"] %}
+                                {% if field.field_name in ["VERS_NAME", "VERS_GEBDAT", "PAT_NAME", "PAT_Geburtsdatum", "PAT_STRASSE_HNR"] %}
                                 <div class="field-row {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
                                     <div class="field-label">
                                         <label class="form-label mb-0" for="{{ field.field_name }}">
@@ -182,10 +185,11 @@
                                         </label>
                                     </div>
                                     <div class="field-input">
-                                        <input type="text" class="form-control"
+                                        <input type="text" class="form-control {% if field.field_name in ['VERS_GEBDAT', 'PAT_Geburtsdatum'] %}date-field{% endif %}"
                                                name="{{ field.field_name }}"
                                                id="{{ field.field_name }}"
-                                               value="{{ field.value or '' }}">
+                                               value="{{ field.value or '' }}"
+                                               {% if field.field_name in ['VERS_GEBDAT', 'PAT_Geburtsdatum'] %}placeholder="TT.MM.JJJJ"{% endif %}>
                                         {% if field.ai_confidence %}
                                         <span class="badge confidence-{{ field.ai_confidence }}"
                                               title="KI-Konfidenz: {{ field.ai_confidence }}">
@@ -198,10 +202,52 @@
                                             {% endif %}
                                         </span>
                                         {% endif %}
+                                        {% if field.field_name in ['VERS_GEBDAT', 'PAT_Geburtsdatum'] %}
+                                        <span class="date-error" id="{{ field.field_name }}_error">Bitte Format TT.MM.JJJJ verwenden</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                                 {% endif %}
                             {% endfor %}
+
+                            {# PLZ und Wohnort nebeneinander #}
+                            {% set plz_field = section_fields | selectattr("field_name", "equalto", "PAT_PLZ") | first %}
+                            {% set wohnort_field = section_fields | selectattr("field_name", "equalto", "PAT_WOHNORT") | first %}
+                            {% if plz_field and wohnort_field %}
+                            <div class="field-row {% if plz_field.status.value == 'unfilled' or wohnort_field.status.value == 'unfilled' %}field-unfilled{% elif plz_field.status.value == 'filled' and wohnort_field.status.value == 'filled' %}field-filled{% endif %}">
+                                <div class="field-label">
+                                    <label class="form-label mb-0">PLZ, Wohnort (Patient/in)</label>
+                                </div>
+                                <div class="field-input" style="display: flex !important; gap: 1rem; align-items: flex-start;">
+                                    <input type="text" class="form-control"
+                                           style="width: 80px; flex-shrink: 0; min-width: 80px; max-width: 80px;"
+                                           name="PAT_PLZ"
+                                           id="PAT_PLZ"
+                                           placeholder="PLZ"
+                                           maxlength="5"
+                                           value="{{ plz_field.value or '' }}">
+                                    <input type="text" class="form-control"
+                                           style="flex: 1; min-width: 0;"
+                                           name="PAT_WOHNORT"
+                                           id="PAT_WOHNORT"
+                                           placeholder="Wohnort"
+                                           value="{{ wohnort_field.value or '' }}">
+                                    {% if wohnort_field.ai_confidence %}
+                                    <span class="badge confidence-{{ wohnort_field.ai_confidence }}"
+                                          style="flex-shrink: 0;"
+                                          title="KI-Konfidenz: {{ wohnort_field.ai_confidence }}">
+                                        {% if wohnort_field.ai_confidence == "high" %}
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        {% elif wohnort_field.ai_confidence == "medium" %}
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                        {% else %}
+                                        <i class="bi bi-question-circle-fill"></i>
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
 
                         {# Gruppe 3: Radioboxen zweispaltig #}
@@ -299,10 +345,11 @@
                                         </label>
                                     </div>
                                     <div class="field-input">
-                                        <input type="text" class="form-control"
+                                        <input type="text" class="form-control {% if field.field_name in ['VERS_BEHANDLUNG', 'VERS_KONTAKT_AM'] %}date-field{% endif %}"
                                                name="{{ field.field_name }}"
                                                id="{{ field.field_name }}"
-                                               value="{{ field.value or '' }}">
+                                               value="{{ field.value or '' }}"
+                                               {% if field.field_name in ['VERS_BEHANDLUNG', 'VERS_KONTAKT_AM'] %}placeholder="TT.MM.JJJJ"{% endif %}>
                                         {% if field.ai_confidence %}
                                         <span class="badge confidence-{{ field.ai_confidence }}"
                                               title="KI-Konfidenz: {{ field.ai_confidence }}">
@@ -314,6 +361,9 @@
                                             <i class="bi bi-question-circle-fill"></i>
                                             {% endif %}
                                         </span>
+                                        {% endif %}
+                                        {% if field.field_name in ['VERS_BEHANDLUNG', 'VERS_KONTAKT_AM'] %}
+                                        <span class="date-error" id="{{ field.field_name }}_error">Bitte Format TT.MM.JJJJ verwenden</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -385,8 +435,40 @@
                             <style>
                                 .diagnoses-table table { border: none; }
                                 .diagnoses-table td { border: none; padding: 0.5rem; vertical-align: top; }
-                                .diagnoses-table td:first-child { width: 65%; }
-                                .diagnoses-table td:last-child { width: 35%; }
+                                .diagnoses-table td:first-child { width: 60%; }
+                                .diagnoses-table td:nth-child(2) { width: 30%; }
+                                .diagnoses-table td:last-child { width: 10%; text-align: center; }
+                                .diagnoses-sort-buttons {
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 0.25rem;
+                                    align-items: center;
+                                    padding-top: 0.5rem;
+                                }
+                                .diagnoses-sort-buttons button {
+                                    width: 32px;
+                                    height: 32px;
+                                    padding: 0;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    background-color: #495057;
+                                    border: 1px solid #6c757d;
+                                    color: #fff;
+                                    border-radius: 4px;
+                                    cursor: pointer;
+                                    transition: background-color 0.2s;
+                                }
+                                .diagnoses-sort-buttons button:hover:not(:disabled) {
+                                    background-color: #6c757d;
+                                }
+                                .diagnoses-sort-buttons button:disabled {
+                                    opacity: 0.3;
+                                    cursor: not-allowed;
+                                }
+                                .diagnoses-sort-buttons button i {
+                                    font-size: 1.2rem;
+                                }
                             </style>
                             <table class="w-100">
                                 {% for i in range(1, 5) %}
@@ -442,6 +524,16 @@
                                                    value="{{ icd_field.value or '' }}">
                                         </div>
                                         {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="diagnoses-sort-buttons">
+                                            <button type="button" class="btn-diagnose-up" data-index="{{ i }}" {% if i == 1 %}disabled{% endif %} title="Nach oben">
+                                                <i class="bi bi-chevron-up"></i>
+                                            </button>
+                                            <button type="button" class="btn-diagnose-down" data-index="{{ i }}" {% if i == 4 %}disabled{% endif %} title="Nach unten">
+                                                <i class="bi bi-chevron-down"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -522,7 +614,8 @@
                                             <label class="form-label mb-0" for="VERS_BESSERUNG_DATUM_1">{{ au_seit.label_de }}</label>
                                         </div>
                                         <div class="field-input">
-                                            <input type="text" class="form-control" name="VERS_BESSERUNG_DATUM_1" id="VERS_BESSERUNG_DATUM_1" value="{{ au_seit.value or '' }}">
+                                            <input type="text" class="form-control date-field" name="VERS_BESSERUNG_DATUM_1" id="VERS_BESSERUNG_DATUM_1" value="{{ au_seit.value or '' }}" placeholder="TT.MM.JJJJ">
+                                            <span class="date-error" id="VERS_BESSERUNG_DATUM_1_error">Bitte Format TT.MM.JJJJ verwenden</span>
                                         </div>
                                     </div>
                                     <div class="field-row">
@@ -577,7 +670,8 @@
                                                 <label class="form-label mb-0" for="VERS_BESSERUNG_DATUM_2">{{ besserung_datum.label_de }}</label>
                                             </div>
                                             <div class="field-input">
-                                                <input type="text" class="form-control" name="VERS_BESSERUNG_DATUM_2" id="VERS_BESSERUNG_DATUM_2" value="{{ besserung_datum.value or '' }}">
+                                                <input type="text" class="form-control date-field" name="VERS_BESSERUNG_DATUM_2" id="VERS_BESSERUNG_DATUM_2" value="{{ besserung_datum.value or '' }}" placeholder="TT.MM.JJJJ">
+                                                <span class="date-error" id="VERS_BESSERUNG_DATUM_2_error">Bitte Format TT.MM.JJJJ verwenden</span>
                                             </div>
                                         </div>
                                     </div>
@@ -589,7 +683,8 @@
                                                 <label class="form-label mb-0" for="VERS_VERSCHLECHTERUNG_DATUM">{{ verschlechterung_datum.label_de }}</label>
                                             </div>
                                             <div class="field-input">
-                                                <input type="text" class="form-control" name="VERS_VERSCHLECHTERUNG_DATUM" id="VERS_VERSCHLECHTERUNG_DATUM" value="{{ verschlechterung_datum.value or '' }}">
+                                                <input type="text" class="form-control date-field" name="VERS_VERSCHLECHTERUNG_DATUM" id="VERS_VERSCHLECHTERUNG_DATUM" value="{{ verschlechterung_datum.value or '' }}" placeholder="TT.MM.JJJJ">
+                                                <span class="date-error" id="VERS_VERSCHLECHTERUNG_DATUM_error">Bitte Format TT.MM.JJJJ verwenden</span>
                                             </div>
                                         </div>
                                     </div>
@@ -866,6 +961,147 @@
                                 </tbody>
                             </table>
                         </div>
+                    {% elif section_num == 7 %}
+                        {# Sektion 7: Befunde - Körpergröße und Gewicht nebeneinander #}
+                        <div class="befunde-section">
+                            <style>
+                                .befunde-section .inline-fields {
+                                    display: flex;
+                                    gap: 2rem;
+                                    align-items: flex-end;
+                                    margin-bottom: 1rem;
+                                }
+                                .befunde-section .field-item {
+                                    display: flex;
+                                    flex-direction: column;
+                                }
+                                .befunde-section .field-item label {
+                                    font-weight: 600;
+                                    margin-bottom: 0.5rem;
+                                }
+                                .befunde-section .field-item input {
+                                    width: 120px;
+                                }
+                                .befunde-section .field-input-wrapper {
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 0.5rem;
+                                }
+                            </style>
+
+                            {# Körpergröße und Gewicht nebeneinander #}
+                            {% set groesse_field = section_fields | selectattr("field_name", "equalto", "VERS_KOERPERLAENGE") | first %}
+                            {% set gewicht_field = section_fields | selectattr("field_name", "equalto", "VERS_GEWICHT") | first %}
+                            {% if groesse_field and gewicht_field %}
+                            <div class="inline-fields p-2 rounded {% if groesse_field.status.value == 'unfilled' or gewicht_field.status.value == 'unfilled' %}field-unfilled{% elif groesse_field.status.value == 'filled' and gewicht_field.status.value == 'filled' %}field-filled{% endif %}">
+                                <div class="field-item">
+                                    <label class="form-label mb-0" for="VERS_KOERPERLAENGE">
+                                        Körpergröße (cm)
+                                    </label>
+                                    <div class="field-input-wrapper">
+                                        <input type="text" class="form-control"
+                                               name="VERS_KOERPERLAENGE"
+                                               id="VERS_KOERPERLAENGE"
+                                               value="{{ groesse_field.value or '' }}">
+                                        {% if groesse_field.ai_confidence %}
+                                        <span class="badge confidence-{{ groesse_field.ai_confidence }}"
+                                              title="KI-Konfidenz: {{ groesse_field.ai_confidence }}">
+                                            {% if groesse_field.ai_confidence == "high" %}
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            {% elif groesse_field.ai_confidence == "medium" %}
+                                            <i class="bi bi-exclamation-circle-fill"></i>
+                                            {% else %}
+                                            <i class="bi bi-question-circle-fill"></i>
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="field-item">
+                                    <label class="form-label mb-0" for="VERS_GEWICHT">
+                                        Gewicht (kg)
+                                    </label>
+                                    <div class="field-input-wrapper">
+                                        <input type="text" class="form-control"
+                                               name="VERS_GEWICHT"
+                                               id="VERS_GEWICHT"
+                                               value="{{ gewicht_field.value or '' }}">
+                                        {% if gewicht_field.ai_confidence %}
+                                        <span class="badge confidence-{{ gewicht_field.ai_confidence }}"
+                                              title="KI-Konfidenz: {{ gewicht_field.ai_confidence }}">
+                                            {% if gewicht_field.ai_confidence == "high" %}
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            {% elif gewicht_field.ai_confidence == "medium" %}
+                                            <i class="bi bi-exclamation-circle-fill"></i>
+                                            {% else %}
+                                            <i class="bi bi-question-circle-fill"></i>
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {# Andere Felder der Sektion 7 #}
+                            {% for field in section_fields %}
+                                {% if field.field_name not in ["VERS_KOERPERLAENGE", "VERS_GEWICHT"] %}
+                                    {% if field.field_type.value == "text" %}
+                                    <div class="mb-3 p-2 rounded {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
+                                        <label class="form-label fw-bold" for="{{ field.field_name }}">
+                                            {{ field.label_de }}
+                                        </label>
+                                        {% if field.ai_confidence %}
+                                        <span class="badge confidence-{{ field.ai_confidence }}"
+                                              title="KI-Konfidenz: {{ field.ai_confidence }}">
+                                            {% if field.ai_confidence == "high" %}
+                                            <i class="bi bi-check-circle-fill"></i> sicher
+                                            {% elif field.ai_confidence == "medium" %}
+                                            <i class="bi bi-exclamation-circle-fill"></i> mittel
+                                            {% else %}
+                                            <i class="bi bi-question-circle-fill"></i> unsicher
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+
+                                        {% if field.field_name in long_text_fields %}
+                                        <textarea class="form-control w-100 large-textarea"
+                                                  name="{{ field.field_name }}"
+                                                  id="{{ field.field_name }}"
+                                                  rows="12">{{ field.value or '' }}</textarea>
+                                        {% else %}
+                                        <input type="text" class="form-control"
+                                               name="{{ field.field_name }}"
+                                               id="{{ field.field_name }}"
+                                               value="{{ field.value or '' }}">
+                                        {% endif %}
+                                    </div>
+                                    {% elif field.field_type.value == "checkbox" %}
+                                    <div class="form-check mb-2 p-2 ps-4 rounded">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="{{ field.field_name }}"
+                                               id="{{ field.field_name }}"
+                                               value="ja"
+                                               {% if field.value == 'ja' %}checked{% endif %}>
+                                        <label class="form-check-label" for="{{ field.field_name }}">
+                                            {{ field.label_de }}
+                                        </label>
+                                        {% if field.ai_confidence %}
+                                        <span class="badge confidence-{{ field.ai_confidence }} ms-1">
+                                            {% if field.ai_confidence == "high" %}
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            {% elif field.ai_confidence == "medium" %}
+                                            <i class="bi bi-exclamation-circle-fill"></i>
+                                            {% else %}
+                                            <i class="bi bi-question-circle-fill"></i>
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                     {% else %}
                     {% for field in section_fields %}
                         {% if field.field_type.value == "text" %}
@@ -956,8 +1192,127 @@
 {% block scripts %}
 <script src="/static/js/review.js"></script>
 <script>
+// Datumsvalidierung (TT.MM.JJJJ)
+function validateDateField(input) {
+    const value = input.value.trim();
+    const errorSpan = document.getElementById(input.id + '_error');
+
+    // Leere Felder sind erlaubt
+    if (value === '') {
+        input.classList.remove('invalid');
+        if (errorSpan) errorSpan.classList.remove('show');
+        return true;
+    }
+
+    // Prüfe Format TT.MM.JJJJ
+    const datePattern = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+    const match = value.match(datePattern);
+
+    if (!match) {
+        input.classList.add('invalid');
+        if (errorSpan) errorSpan.classList.add('show');
+        return false;
+    }
+
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+
+    // Plausibilitätsprüfung
+    if (month < 1 || month > 12) {
+        input.classList.add('invalid');
+        if (errorSpan) errorSpan.classList.add('show');
+        return false;
+    }
+
+    if (day < 1 || day > 31) {
+        input.classList.add('invalid');
+        if (errorSpan) errorSpan.classList.add('show');
+        return false;
+    }
+
+    // Vereinfachte Tagesprüfung für Monate
+    const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (day > daysInMonth[month - 1]) {
+        input.classList.add('invalid');
+        if (errorSpan) errorSpan.classList.add('show');
+        return false;
+    }
+
+    // Jahr sollte plausibel sein (1900-2100)
+    if (year < 1900 || year > 2100) {
+        input.classList.add('invalid');
+        if (errorSpan) errorSpan.classList.add('show');
+        return false;
+    }
+
+    // Validierung erfolgreich
+    input.classList.remove('invalid');
+    if (errorSpan) errorSpan.classList.remove('show');
+    return true;
+}
+
+// Validierung für alle Datumsfelder einrichten
+document.addEventListener('DOMContentLoaded', function() {
+    const dateFields = document.querySelectorAll('.date-field');
+
+    dateFields.forEach(function(field) {
+        // Validierung beim Verlassen des Felds
+        field.addEventListener('blur', function() {
+            validateDateField(this);
+        });
+
+        // Validierung während der Eingabe (nach Pause)
+        let timeout;
+        field.addEventListener('input', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                validateDateField(this);
+            }, 500);
+        });
+    });
+
+    // Entferne field-unfilled Markierung, wenn ein Feld ausgefüllt wird
+    const allInputs = document.querySelectorAll('.form-control, .form-check-input');
+    allInputs.forEach(function(input) {
+        input.addEventListener('input', function() {
+            // Finde das übergeordnete Element mit field-unfilled Klasse
+            let parent = this.closest('.field-unfilled');
+            if (parent && this.value && this.value.trim() !== '') {
+                parent.classList.remove('field-unfilled');
+                parent.classList.add('field-filled');
+            }
+        });
+
+        // Für Checkboxen und Radio-Buttons
+        input.addEventListener('change', function() {
+            let parent = this.closest('.field-unfilled');
+            if (parent && (this.checked || (this.value && this.value.trim() !== ''))) {
+                parent.classList.remove('field-unfilled');
+                parent.classList.add('field-filled');
+            }
+        });
+    });
+});
+
 // DEBUG: Zeige Formular-Daten in der Console (OHNE Submit zu blockieren)
 document.querySelector('form').addEventListener('submit', function(e) {
+    // Validiere alle Datumsfelder vor dem Submit
+    const dateFields = document.querySelectorAll('.date-field');
+    let hasErrors = false;
+
+    dateFields.forEach(function(field) {
+        if (!validateDateField(field)) {
+            hasErrors = true;
+        }
+    });
+
+    if (hasErrors) {
+        e.preventDefault();
+        alert('Bitte korrigieren Sie die markierten Datumsfelder (Format: TT.MM.JJJJ)');
+        return false;
+    }
+
     const formData = new FormData(this);
 
     console.log('='.repeat(80));
@@ -994,7 +1349,98 @@ document.querySelector('form').addEventListener('submit', function(e) {
 
     console.log('='.repeat(80));
 
-    // Formular wird normal weitergeleitet (kein preventDefault!)
+    // Formular wird normal weitergeleitet (wenn keine Fehler)
 });
+
+// Diagnosen-Sortierung
+document.addEventListener('DOMContentLoaded', function() {
+    // Event-Listener für Up-Buttons
+    document.querySelectorAll('.btn-diagnose-up').forEach(button => {
+        button.addEventListener('click', function() {
+            const currentIndex = parseInt(this.dataset.index);
+            const previousIndex = currentIndex - 1;
+
+            if (previousIndex >= 1) {
+                swapDiagnoses(currentIndex, previousIndex);
+            }
+        });
+    });
+
+    // Event-Listener für Down-Buttons
+    document.querySelectorAll('.btn-diagnose-down').forEach(button => {
+        button.addEventListener('click', function() {
+            const currentIndex = parseInt(this.dataset.index);
+            const nextIndex = currentIndex + 1;
+
+            if (nextIndex <= 4) {
+                swapDiagnoses(currentIndex, nextIndex);
+            }
+        });
+    });
+});
+
+function swapDiagnoses(index1, index2) {
+    // Diagnose-Textfelder
+    const diag1 = document.getElementById('VERS_DIAGNOSE_' + index1);
+    const diag2 = document.getElementById('VERS_DIAGNOSE_' + index2);
+
+    // ICD-Code-Felder
+    const icd1 = document.getElementById('VERS_DIAGNOSESCH_' + index1);
+    const icd2 = document.getElementById('VERS_DIAGNOSESCH_' + index2);
+
+    if (diag1 && diag2 && icd1 && icd2) {
+        // Werte tauschen
+        const tempDiag = diag1.value;
+        diag1.value = diag2.value;
+        diag2.value = tempDiag;
+
+        const tempIcd = icd1.value;
+        icd1.value = icd2.value;
+        icd2.value = tempIcd;
+
+        // CSS-Klassen tauschen (field-filled/field-unfilled)
+        const diag1Parent = diag1.closest('.mb-3');
+        const diag2Parent = diag2.closest('.mb-3');
+        const icd1Parent = icd1.closest('.mb-3');
+        const icd2Parent = icd2.closest('.mb-3');
+
+        // Diagnose-Felder
+        const diag1HasFilled = diag1Parent.classList.contains('field-filled');
+        const diag1HasUnfilled = diag1Parent.classList.contains('field-unfilled');
+        const diag2HasFilled = diag2Parent.classList.contains('field-filled');
+        const diag2HasUnfilled = diag2Parent.classList.contains('field-unfilled');
+
+        diag1Parent.classList.remove('field-filled', 'field-unfilled');
+        diag2Parent.classList.remove('field-filled', 'field-unfilled');
+
+        if (diag2HasFilled) diag1Parent.classList.add('field-filled');
+        if (diag2HasUnfilled) diag1Parent.classList.add('field-unfilled');
+        if (diag1HasFilled) diag2Parent.classList.add('field-filled');
+        if (diag1HasUnfilled) diag2Parent.classList.add('field-unfilled');
+
+        // ICD-Code-Felder
+        const icd1HasFilled = icd1Parent.classList.contains('field-filled');
+        const icd1HasUnfilled = icd1Parent.classList.contains('field-unfilled');
+        const icd2HasFilled = icd2Parent.classList.contains('field-filled');
+        const icd2HasUnfilled = icd2Parent.classList.contains('field-unfilled');
+
+        icd1Parent.classList.remove('field-filled', 'field-unfilled');
+        icd2Parent.classList.remove('field-filled', 'field-unfilled');
+
+        if (icd2HasFilled) icd1Parent.classList.add('field-filled');
+        if (icd2HasUnfilled) icd1Parent.classList.add('field-unfilled');
+        if (icd1HasFilled) icd2Parent.classList.add('field-filled');
+        if (icd1HasUnfilled) icd2Parent.classList.add('field-unfilled');
+
+        // Kurze visuelle Feedback-Animation
+        [diag1Parent, diag2Parent, icd1Parent, icd2Parent].forEach(el => {
+            el.style.transition = 'background-color 0.3s';
+            el.style.backgroundColor = '#3d4449';
+            setTimeout(() => {
+                el.style.backgroundColor = '';
+            }, 300);
+        });
+    }
+}
 </script>
 {% endblock %}

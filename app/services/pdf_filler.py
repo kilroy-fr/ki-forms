@@ -30,7 +30,11 @@ def fill_pdf(
     for f in fields:
         if f.field_type == FieldType.TEXT:
             if f.value:
-                text_map[f.field_name] = f.value
+                value = f.value
+                # Für VERS_GEBDAT und PAT_Geburtsdatum: Punkte aus Datum entfernen (TTMMJJJJ statt TT.MM.JJJJ)
+                if f.field_name in ("VERS_GEBDAT", "PAT_Geburtsdatum"):
+                    value = value.replace(".", "")
+                text_map[f.field_name] = value
         elif f.field_type == FieldType.CHECKBOX:
             if f.value:
                 checkbox_map[f.field_name] = f.value
