@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const submitBtn = document.getElementById("submitBtn");
     const uploadForm = document.getElementById("uploadForm");
     const spinnerOverlay = document.getElementById("spinnerOverlay");
+    const s0050StandaloneSection = document.getElementById("s0050StandaloneSection");
 
     let filesSelected = false;
     let selectedFiles = []; // Array zum Speichern ausgewählter Dateien
@@ -20,6 +21,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 thumbnail.src = "/form/" + formId + "/thumbnail";
                 thumbnailContainer.classList.remove("d-none");
                 uploadForm.action = "/form/" + formId + "/process";
+
+                // S0050-Standalone-Bereich anzeigen, wenn S0050 ausgewählt ist
+                if (s0050StandaloneSection) {
+                    if (formId === "S0050") {
+                        s0050StandaloneSection.classList.remove("d-none");
+                    } else {
+                        s0050StandaloneSection.classList.add("d-none");
+                    }
+                }
 
                 // Ollama-Warmup starten, sobald ein Formular ausgewählt wird
                 fetch('/api/warmup', {
@@ -40,6 +50,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 thumbnailContainer.classList.add("d-none");
                 thumbnail.src = "";
                 uploadForm.action = "";
+                if (s0050StandaloneSection) {
+                    s0050StandaloneSection.classList.add("d-none");
+                }
             }
             updateSubmitState();
         });
@@ -49,6 +62,11 @@ document.addEventListener("DOMContentLoaded", function () {
             thumbnail.src = "/form/" + formSelect.value + "/thumbnail";
             thumbnailContainer.classList.remove("d-none");
             uploadForm.action = "/form/" + formSelect.value + "/process";
+
+            // S0050-Standalone-Bereich initial anzeigen, wenn S0050 vorausgewählt
+            if (s0050StandaloneSection && formSelect.value === "S0050") {
+                s0050StandaloneSection.classList.remove("d-none");
+            }
         }
     }
 

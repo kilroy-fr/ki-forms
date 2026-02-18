@@ -361,7 +361,7 @@ def _validate_diagnoses_icd10(
     all_results: list[ExtractionResult],
 ) -> list[ExtractionResult]:
     """
-    Pass 4: ICD-10-Validierung für Diagnosen 1-4.
+    Pass 4: ICD-10-Validierung für Diagnosen 1-10.
 
     Prüft für jede Diagnose, ob:
     - Ein Diagnosetext vorhanden ist
@@ -376,8 +376,8 @@ def _validate_diagnoses_icd10(
 
     new_results = []
 
-    # Prüfe Diagnosen 1-4
-    for i in range(1, 5):
+    # Prüfe Diagnosen 1-10
+    for i in range(1, 11):
         diagnosis_field = f"VERS_DIAGNOSE_{i}"
         icd10_field = f"VERS_DIAGNOSESCH_{i}"
 
@@ -464,9 +464,9 @@ def _validate_diagnoses_icd10(
 def _clean_icd10_results(results: list[ExtractionResult]) -> list[ExtractionResult]:
     """
     Post-Processing: Bereinigt ICD-10-Codes von Seitenlokalisations-Suffixen.
-    Betrifft Felder: VERS_DIAGNOSESCH_1 bis VERS_DIAGNOSESCH_4
+    Betrifft Felder: VERS_DIAGNOSESCH_1 bis VERS_DIAGNOSESCH_10
     """
-    icd10_fields = {f"VERS_DIAGNOSESCH_{i}" for i in range(1, 5)}
+    icd10_fields = {f"VERS_DIAGNOSESCH_{i}" for i in range(1, 11)}
 
     cleaned_results = []
     for result in results:
@@ -562,7 +562,7 @@ def extract_fields(
             logger.error(f"Pass 4 fehlgeschlagen: {e}")
 
     # --- Pass 5: ICD-10-Validierung für Diagnosen ---
-    logger.info("Pass 5: ICD-10-Validierung für Diagnosen 1-4...")
+    logger.info("Pass 5: ICD-10-Validierung für Diagnosen 1-10...")
     try:
         icd10_results = _validate_diagnoses_icd10(all_results)
         if icd10_results:
@@ -584,6 +584,17 @@ def extract_fields(
     return all_results
 
 
+def _repair_json(json_str: str) -> str:
+    """Versucht, häufige JSON-Fehler zu reparieren."""
+    # Entferne trailing commas vor ] oder }
+    json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
+
+    # Entferne mehrfache Kommas
+    json_str = re.sub(r',\s*,', ',', json_str)
+
+    return json_str
+
+
 def _parse_response(raw: str, key: str) -> list[ExtractionResult]:
     """JSON-Antwort von Ollama parsen, mit Fallback-Logik."""
     cleaned = raw.strip()
@@ -600,20 +611,30 @@ def _parse_response(raw: str, key: str) -> list[ExtractionResult]:
             lines = lines[:-1]
         cleaned = "\n".join(lines).strip()
 
+    # JSON-Reparatur versuchen
+    cleaned = _repair_json(cleaned)
+
     data = None
     try:
         data = json.loads(cleaned)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.warning(f"Erster JSON-Parse-Versuch fehlgeschlagen, versuche Extraktion...")
         # Versuche, JSON aus der Antwort zu extrahieren (entfernt Preamble-Text)
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if match:
+            extracted = match.group()
+            # Nochmal Reparatur versuchen auf extrahiertem JSON
+            extracted = _repair_json(extracted)
             try:
-                data = json.loads(match.group())
-            except json.JSONDecodeError:
-                logger.error(f"JSON-Parsing fehlgeschlagen: {raw[:500]}")
+                data = json.loads(extracted)
+                logger.info("JSON erfolgreich nach Extraktion und Reparatur geparst")
+            except json.JSONDecodeError as e2:
+                logger.error(f"JSON-Parsing fehlgeschlagen bei Position {e2.pos}: {e2.msg}")
+                logger.error(f"Kontext um Fehlerposition: ...{extracted[max(0, e2.pos-100):e2.pos+100]}...")
+                logger.error(f"Vollständige Antwort ({len(raw)} Zeichen): {raw}")
                 return []
         else:
-            logger.error(f"Kein JSON in Ollama-Antwort gefunden: {raw[:500]}")
+            logger.error(f"Kein JSON in Ollama-Antwort gefunden: {raw}")
             return []
 
     if data is None:
