@@ -150,7 +150,18 @@
 <div class="sender-modal-overlay d-none" id="senderModal">
     <div class="sender-modal">
         <div class="sender-modal-header">
-            <h3 class="mb-0">Absender-Daten bearbeiten</h3>
+            <button class="sender-nav-btn sender-nav-prev" id="prevDoctorBtn" aria-label="Vorheriger Arzt">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <div class="sender-modal-title-wrapper">
+                <h3 class="mb-0">Absender-Daten bearbeiten</h3>
+                <div class="sender-doctor-indicator" id="doctorIndicator">
+                    <span id="currentDoctorIndex">1</span> von <span id="totalDoctors">5</span>
+                </div>
+            </div>
+            <button class="sender-nav-btn sender-nav-next" id="nextDoctorBtn" aria-label="Nächster Arzt">
+                <i class="bi bi-chevron-right"></i>
+            </button>
             <button class="btn-close btn-close-white" id="closeSenderModal" aria-label="Schließen"></button>
         </div>
         <div class="sender-modal-body">
@@ -186,21 +197,27 @@
                 <label for="praxis" class="form-label">Praxis</label>
                 <input type="text" class="form-control" id="praxis" name="praxis">
 
-                <!-- Straße -->
-                <label for="strasse" class="form-label">Straße</label>
-                <input type="text" class="form-control" id="strasse" name="strasse">
+                <!-- Institutionskennzeichen -->
+                <label for="institutionskennzeichen" class="form-label">Institutionskennzeichen</label>
+                <input type="text" class="form-control" id="institutionskennzeichen" name="institutionskennzeichen">
 
-                <!-- Hausnummer -->
-                <label for="hausnummer" class="form-label">Hausnummer</label>
-                <input type="text" class="form-control" id="hausnummer" name="hausnummer">
+                <!-- Straße und Hausnummer -->
+                <div class="field-row">
+                    <label class="field-row-label">Straße, Hausnummer</label>
+                    <div class="field-row-inputs">
+                        <input type="text" class="form-control" id="strasse" name="strasse" placeholder="Straße">
+                        <input type="text" class="form-control narrow" id="hausnummer" name="hausnummer" placeholder="Nr." maxlength="4">
+                    </div>
+                </div>
 
-                <!-- PLZ -->
-                <label for="plz" class="form-label">PLZ</label>
-                <input type="text" class="form-control" id="plz" name="plz" maxlength="5" pattern="\d{5}">
-
-                <!-- Ort -->
-                <label for="ort" class="form-label">Ort</label>
-                <input type="text" class="form-control" id="ort" name="ort">
+                <!-- PLZ und Ort -->
+                <div class="field-row">
+                    <label class="field-row-label">PLZ, Ort</label>
+                    <div class="field-row-inputs">
+                        <input type="text" class="form-control medium" id="plz" name="plz" placeholder="PLZ" maxlength="5" pattern="\d{5}">
+                        <input type="text" class="form-control" id="ort" name="ort" placeholder="Ort">
+                    </div>
+                </div>
 
                 <!-- Telefon -->
                 <label for="telefon" class="form-label">Telefon</label>

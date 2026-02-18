@@ -1,6 +1,6 @@
 /**
  * Absender-Daten Verwaltung
- * Verwaltet die Eingabe, Speicherung und Anzeige der Absender-Daten
+ * Verwaltet die Eingabe, Speicherung und Anzeige von bis zu 5 Ärzten
  */
 
 // DOM Elemente
@@ -10,16 +10,55 @@ const closeSenderModal = document.getElementById('closeSenderModal');
 const cancelSenderBtn = document.getElementById('cancelSenderBtn');
 const senderDataForm = document.getElementById('senderDataForm');
 const senderDataDisplay = document.getElementById('senderDataDisplay');
+const prevDoctorBtn = document.getElementById('prevDoctorBtn');
+const nextDoctorBtn = document.getElementById('nextDoctorBtn');
+const currentDoctorIndexEl = document.getElementById('currentDoctorIndex');
+const totalDoctorsEl = document.getElementById('totalDoctors');
+
+// Globale Variablen
+const MAX_DOCTORS = 5;
+let doctors = []; // Array von bis zu 5 Ärzten
+let currentDoctorIndex = 0; // Aktueller Arzt (0-4)
+
+/**
+ * Initialisiert leere Ärzte-Slots
+ */
+function initializeEmptyDoctors() {
+    const emptyDoctor = {
+        anrede: '',
+        titel: '',
+        vorname: '',
+        name: '',
+        fachrichtung: '',
+        praxis: '',
+        institutionskennzeichen: '',
+        strasse: '',
+        hausnummer: '',
+        plz: '',
+        ort: '',
+        telefon: '',
+        email: '',
+        kontoinhaber: '',
+        iban: '',
+        bic: '',
+        kreditinstitut: ''
+    };
+    return Array(MAX_DOCTORS).fill(null).map(() => ({ ...emptyDoctor }));
+}
 
 /**
  * Öffnet das Modal zur Bearbeitung der Absender-Daten
  */
 async function openSenderModal() {
-    // Lade vorhandene Daten und fülle das Formular
-    const savedData = await getSenderData();
-    if (savedData) {
-        fillForm(savedData);
-    }
+    // Lade alle Ärzte
+    await loadDoctors();
+
+    // Zeige den aktuellen Arzt
+    loadDoctorIntoForm(currentDoctorIndex);
+
+    // Aktualisiere Navigation
+    updateNavigation();
+
     senderModal.classList.remove('d-none');
 }
 
@@ -27,12 +66,157 @@ async function openSenderModal() {
  * Schließt das Modal
  */
 function closeSenderModalHandler() {
+    // Speichere aktuellen Arzt vor dem Schließen
+    saveCurrentDoctorToArray();
+
     senderModal.classList.add('d-none');
-    senderDataForm.reset();
 }
 
 /**
- * Füllt das Formular mit gespeicherten Daten
+ * Lädt alle Ärzte vom Backend
+ */
+async function loadDoctors() {
+    try {
+        const response = await fetch('/api/sender-data', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Fehler beim Laden der Daten');
+        }
+
+        const data = await response.json();
+
+        // Initialisiere mit leeren Ärzten
+        doctors = initializeEmptyDoctors();
+
+        // Überschreibe mit gespeicherten Daten
+        if (data.doctors && Array.isArray(data.doctors)) {
+            data.doctors.forEach((doctor, index) => {
+                if (index < MAX_DOCTORS) {
+                    doctors[index] = { ...doctors[index], ...doctor };
+                }
+            });
+        }
+
+        // Fülle neue Ärzte (2-5) mit Praxis-Daten vom ersten Arzt vor
+        prefillPracticeDataForNewDoctors();
+    } catch (error) {
+        console.error('Fehler beim Laden:', error);
+        doctors = initializeEmptyDoctors();
+    }
+}
+
+/**
+ * Füllt die Praxis-Daten (ab "praxis") für leere Ärzte mit den Daten vom ersten Arzt vor
+ */
+function prefillPracticeDataForNewDoctors() {
+    if (!doctors || doctors.length === 0) return;
+
+    const firstDoctor = doctors[0];
+
+    // Felder, die vom ersten Arzt übernommen werden sollen (ab "praxis")
+    const practiceFields = [
+        'praxis',
+        'institutionskennzeichen',
+        'strasse',
+        'hausnummer',
+        'plz',
+        'ort',
+        'telefon',
+        'email',
+        'kontoinhaber',
+        'iban',
+        'bic',
+        'kreditinstitut'
+    ];
+
+    // Für Ärzte 2-5
+    for (let i = 1; i < MAX_DOCTORS; i++) {
+        const doctor = doctors[i];
+
+        // Prüfe ob der Arzt leer ist (keine persönlichen Daten)
+        const isEmpty = !doctor.vorname && !doctor.name && !doctor.anrede && !doctor.titel && !doctor.fachrichtung;
+
+        // Wenn leer, übernehme Praxis-Daten vom ersten Arzt
+        if (isEmpty) {
+            practiceFields.forEach(field => {
+                if (firstDoctor[field]) {
+                    doctor[field] = firstDoctor[field];
+                }
+            });
+        }
+    }
+}
+
+/**
+ * Lädt einen bestimmten Arzt ins Formular
+ */
+function loadDoctorIntoForm(index) {
+    if (index < 0 || index >= MAX_DOCTORS) return;
+
+    const doctor = doctors[index];
+    Object.keys(doctor).forEach(key => {
+        const input = document.getElementById(key);
+        if (input) {
+            input.value = doctor[key] || '';
+        }
+    });
+}
+
+/**
+ * Speichert den aktuellen Formular-Inhalt in das Ärzte-Array
+ */
+function saveCurrentDoctorToArray() {
+    const formData = new FormData(senderDataForm);
+    const doctorData = {};
+
+    formData.forEach((value, key) => {
+        doctorData[key] = value.trim();
+    });
+
+    doctors[currentDoctorIndex] = doctorData;
+}
+
+/**
+ * Wechselt zu einem anderen Arzt
+ */
+function switchDoctor(newIndex) {
+    if (newIndex < 0 || newIndex >= MAX_DOCTORS) return;
+
+    // Speichere aktuellen Arzt
+    saveCurrentDoctorToArray();
+
+    // Wechsle Index
+    currentDoctorIndex = newIndex;
+
+    // Lade neuen Arzt
+    loadDoctorIntoForm(currentDoctorIndex);
+
+    // Aktualisiere Navigation
+    updateNavigation();
+}
+
+/**
+ * Aktualisiert die Navigation-Buttons und Anzeige
+ */
+function updateNavigation() {
+    // Aktualisiere Anzeige
+    currentDoctorIndexEl.textContent = currentDoctorIndex + 1;
+    totalDoctorsEl.textContent = MAX_DOCTORS;
+
+    // Prev-Button aktivieren/deaktivieren
+    prevDoctorBtn.disabled = currentDoctorIndex === 0;
+
+    // Next-Button aktivieren/deaktivieren
+    nextDoctorBtn.disabled = currentDoctorIndex === MAX_DOCTORS - 1;
+}
+
+/**
+ * Füllt das Formular mit gespeicherten Daten (Legacy-Funktion)
  */
 function fillForm(data) {
     Object.keys(data).forEach(key => {
@@ -44,16 +228,24 @@ function fillForm(data) {
 }
 
 /**
- * Speichert die Absender-Daten im Backend
+ * Speichert alle Ärzte im Backend
  */
-async function saveSenderData(data) {
+async function saveDoctors() {
     try {
+        // Speichere aktuellen Arzt vor dem Speichern
+        saveCurrentDoctorToArray();
+
+        // Filtere leere Ärzte (die keine Daten haben)
+        const nonEmptyDoctors = doctors.filter(doctor => {
+            return Object.values(doctor).some(value => value && value.trim() !== '');
+        });
+
         const response = await fetch('/api/sender-data', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify({ doctors: nonEmptyDoctors }),
         });
 
         if (!response.ok) {
@@ -69,7 +261,8 @@ async function saveSenderData(data) {
 }
 
 /**
- * Lädt die Absender-Daten vom Backend
+ * Lädt die Absender-Daten vom Backend (Legacy für Kompatibilität)
+ * Gibt den ersten Arzt zurück
  */
 async function getSenderData() {
     try {
@@ -85,7 +278,13 @@ async function getSenderData() {
         }
 
         const data = await response.json();
-        return Object.keys(data).length > 0 ? data : null;
+
+        // Neues Format: {"doctors": [...]}
+        if (data.doctors && Array.isArray(data.doctors) && data.doctors.length > 0) {
+            return data.doctors[0];
+        }
+
+        return null;
     } catch (error) {
         console.error('Fehler beim Laden:', error);
         return null;
@@ -108,7 +307,7 @@ async function displaySenderData() {
         return;
     }
 
-    // Erstelle HTML für die Anzeige
+    // Erstelle HTML für die Anzeige (zeigt nur den ersten/Standard-Arzt)
     let html = '<div class="sender-data-content">';
 
     // Persönliche Daten
@@ -184,17 +383,9 @@ async function displaySenderData() {
 async function handleFormSubmit(e) {
     e.preventDefault();
 
-    // Sammle alle Formulardaten
-    const formData = new FormData(senderDataForm);
-    const data = {};
-
-    formData.forEach((value, key) => {
-        data[key] = value.trim();
-    });
-
     try {
-        // Speichere die Daten
-        await saveSenderData(data);
+        // Speichere alle Ärzte
+        await saveDoctors();
 
         // Aktualisiere die Anzeige
         await displaySenderData();
@@ -203,9 +394,9 @@ async function handleFormSubmit(e) {
         closeSenderModalHandler();
 
         // Zeige Erfolgsbenachrichtigung (optional)
-        console.log('Absender-Daten gespeichert:', data);
+        console.log('Absender-Daten gespeichert');
     } catch (error) {
-        // Fehlerbehandlung bereits in saveSenderData
+        // Fehlerbehandlung bereits in saveDoctors
         console.error('Fehler beim Speichern der Absender-Daten:', error);
     }
 }
@@ -215,6 +406,15 @@ editSenderBtn.addEventListener('click', openSenderModal);
 closeSenderModal.addEventListener('click', closeSenderModalHandler);
 cancelSenderBtn.addEventListener('click', closeSenderModalHandler);
 senderDataForm.addEventListener('submit', handleFormSubmit);
+
+// Navigation-Event-Listeners
+prevDoctorBtn.addEventListener('click', () => {
+    switchDoctor(currentDoctorIndex - 1);
+});
+
+nextDoctorBtn.addEventListener('click', () => {
+    switchDoctor(currentDoctorIndex + 1);
+});
 
 // Schließe Modal bei Klick auf Overlay (außerhalb des Modals)
 senderModal.addEventListener('click', (e) => {

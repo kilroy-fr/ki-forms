@@ -520,12 +520,57 @@ footer {
     align-items: center;
     padding: 1.5rem;
     border-bottom: 1px solid #374151;
+    gap: 1rem;
+}
+
+.sender-modal-title-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .sender-modal-header h3 {
     color: #f9fafb;
     font-size: 1.5rem;
     font-weight: 600;
+}
+
+.sender-doctor-indicator {
+    font-size: 0.875rem;
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.sender-nav-btn {
+    background: transparent;
+    border: 1px solid #374151;
+    color: #9ca3af;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.sender-nav-btn:hover:not(:disabled) {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.sender-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.sender-nav-btn i {
+    font-size: 1.25rem;
 }
 
 .sender-modal-body {
@@ -573,6 +618,40 @@ footer {
 #senderDataForm .d-flex {
     grid-column: 1 / -1;
     margin-top: 1rem;
+}
+
+/* Felder-Zeilen für nebeneinander liegende Eingabefelder */
+.field-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0.75rem 1.5rem;
+    align-items: center;
+}
+
+.field-row-label {
+    text-align: right;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding-right: 0.5rem;
+}
+
+.field-row-inputs {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.field-row-inputs .form-control {
+    flex: 1;
+}
+
+.field-row-inputs .form-control.narrow {
+    flex: 0 0 80px;
+}
+
+.field-row-inputs .form-control.medium {
+    flex: 0 0 120px;
 }
 
 /* Abbrechen-Button im Modal mit schwach rotem Hintergrund */
