@@ -2,33 +2,6 @@
 
 {% block title %}{{ form.form_id }} - Felder prüfen{% endblock %}
 
-{% block head %}
-<style>
-    .large-textarea {
-        min-height: 300px !important;
-        width: 100% !important;
-    }
-    /* Datumsfelder schmäler machen */
-    .date-field {
-        max-width: 150px !important;
-    }
-    /* Validierungsfehler-Stil */
-    .date-field.invalid {
-        border-color: #dc3545 !important;
-        background-color: #2c1a1a !important;
-    }
-    .date-error {
-        color: #dc3545;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-        display: none;
-    }
-    .date-error.show {
-        display: block;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <h2>{{ form.form_id }} &mdash; Felder prüfen und ergänzen</h2>
 
@@ -435,9 +408,24 @@
                             <style>
                                 .diagnoses-table table { border: none; }
                                 .diagnoses-table td { border: none; padding: 0.5rem; vertical-align: top; }
-                                .diagnoses-table td:first-child { width: 60%; }
-                                .diagnoses-table td:nth-child(2) { width: 30%; }
+                                .diagnoses-table td:first-child { width: 75%; }
+                                .diagnoses-table td:nth-child(2) { width: 15%; }
                                 .diagnoses-table td:last-child { width: 10%; text-align: center; }
+                                /* Diagnose-Textfelder größer machen */
+                                .diagnoses-table td:first-child .form-control {
+                                    padding: 0.75rem 1rem;
+                                    min-height: 48px;
+                                    width: 100%;
+                                    min-width: 600px;
+                                }
+                                /* Erste 4 Diagnosen farblich hervorheben */
+                                .diagnoses-table tr.primary-diagnosis {
+                                    background-color: #2c3e50;
+                                    border-radius: 0.25rem;
+                                }
+                                .diagnoses-table tr.secondary-diagnosis {
+                                    opacity: 0.85;
+                                }
                                 .diagnoses-sort-buttons {
                                     display: flex;
                                     flex-direction: column;
@@ -469,10 +457,18 @@
                                 .diagnoses-sort-buttons button i {
                                     font-size: 1.2rem;
                                 }
+                                .diagnoses-sort-buttons .btn-diagnose-clear {
+                                    background-color: #dc3545;
+                                    border-color: #dc3545;
+                                }
+                                .diagnoses-sort-buttons .btn-diagnose-clear:hover {
+                                    background-color: #c82333;
+                                    border-color: #bd2130;
+                                }
                             </style>
                             <table class="w-100">
-                                {% for i in range(1, 5) %}
-                                <tr>
+                                {% for i in range(1, 11) %}
+                                <tr class="{% if i <= 4 %}primary-diagnosis{% else %}secondary-diagnosis{% endif %}">
                                     <td>
                                         {% set diag_field = section_fields | selectattr("field_name", "equalto", "VERS_DIAGNOSE_" ~ i) | first %}
                                         {% if diag_field %}
@@ -530,7 +526,10 @@
                                             <button type="button" class="btn-diagnose-up" data-index="{{ i }}" {% if i == 1 %}disabled{% endif %} title="Nach oben">
                                                 <i class="bi bi-chevron-up"></i>
                                             </button>
-                                            <button type="button" class="btn-diagnose-down" data-index="{{ i }}" {% if i == 4 %}disabled{% endif %} title="Nach unten">
+                                            <button type="button" class="btn-diagnose-clear" data-index="{{ i }}" title="Diagnose löschen">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                            <button type="button" class="btn-diagnose-down" data-index="{{ i }}" {% if i == 10 %}disabled{% endif %} title="Nach unten">
                                                 <i class="bi bi-chevron-down"></i>
                                             </button>
                                         </div>
@@ -962,82 +961,115 @@
                             </table>
                         </div>
                     {% elif section_num == 7 %}
-                        {# Sektion 7: Befunde - Körpergröße und Gewicht nebeneinander #}
+                        {# Sektion 7: Befunde - Untersuchungsbefunde (80%) und Körpergröße/Gewicht (20%) #}
                         <div class="befunde-section">
                             <style>
-                                .befunde-section .inline-fields {
-                                    display: flex;
-                                    gap: 2rem;
-                                    align-items: flex-end;
+                                .befunde-section .befunde-layout {
+                                    display: grid;
+                                    grid-template-columns: 80% 20%;
+                                    gap: 1.5rem;
                                     margin-bottom: 1rem;
                                 }
-                                .befunde-section .field-item {
+                                .befunde-section .body-measurements {
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 1rem;
+                                }
+                                .befunde-section .measurement-item {
                                     display: flex;
                                     flex-direction: column;
                                 }
-                                .befunde-section .field-item label {
+                                .befunde-section .measurement-item label {
                                     font-weight: 600;
                                     margin-bottom: 0.5rem;
                                 }
-                                .befunde-section .field-item input {
-                                    width: 120px;
-                                }
-                                .befunde-section .field-input-wrapper {
+                                .befunde-section .measurement-input-wrapper {
                                     display: flex;
                                     align-items: center;
                                     gap: 0.5rem;
                                 }
+                                .befunde-section .measurement-item input {
+                                    width: 100%;
+                                }
                             </style>
 
-                            {# Körpergröße und Gewicht nebeneinander #}
+                            {# Layout: Untersuchungsbefunde links (80%), Körpergröße/Gewicht rechts (20%) #}
+                            {% set untersuchung_field = section_fields | selectattr("field_name", "equalto", "UNTERSUCHUNGSBEFUNDE") | first %}
                             {% set groesse_field = section_fields | selectattr("field_name", "equalto", "VERS_KOERPERLAENGE") | first %}
                             {% set gewicht_field = section_fields | selectattr("field_name", "equalto", "VERS_GEWICHT") | first %}
-                            {% if groesse_field and gewicht_field %}
-                            <div class="inline-fields p-2 rounded {% if groesse_field.status.value == 'unfilled' or gewicht_field.status.value == 'unfilled' %}field-unfilled{% elif groesse_field.status.value == 'filled' and gewicht_field.status.value == 'filled' %}field-filled{% endif %}">
-                                <div class="field-item">
-                                    <label class="form-label mb-0" for="VERS_KOERPERLAENGE">
-                                        Körpergröße (cm)
+
+                            {% if untersuchung_field and groesse_field and gewicht_field %}
+                            <div class="befunde-layout">
+                                {# Linke Spalte: Untersuchungsbefunde (80%) #}
+                                <div class="p-2 rounded {% if untersuchung_field.status.value == 'unfilled' %}field-unfilled{% elif untersuchung_field.status.value == 'filled' %}field-filled{% endif %}">
+                                    <label class="form-label fw-bold" for="UNTERSUCHUNGSBEFUNDE">
+                                        {{ untersuchung_field.label_de }}
                                     </label>
-                                    <div class="field-input-wrapper">
-                                        <input type="text" class="form-control"
-                                               name="VERS_KOERPERLAENGE"
-                                               id="VERS_KOERPERLAENGE"
-                                               value="{{ groesse_field.value or '' }}">
-                                        {% if groesse_field.ai_confidence %}
-                                        <span class="badge confidence-{{ groesse_field.ai_confidence }}"
-                                              title="KI-Konfidenz: {{ groesse_field.ai_confidence }}">
-                                            {% if groesse_field.ai_confidence == "high" %}
-                                            <i class="bi bi-check-circle-fill"></i>
-                                            {% elif groesse_field.ai_confidence == "medium" %}
-                                            <i class="bi bi-exclamation-circle-fill"></i>
-                                            {% else %}
-                                            <i class="bi bi-question-circle-fill"></i>
-                                            {% endif %}
-                                        </span>
+                                    {% if untersuchung_field.ai_confidence %}
+                                    <span class="badge confidence-{{ untersuchung_field.ai_confidence }}"
+                                          title="KI-Konfidenz: {{ untersuchung_field.ai_confidence }}">
+                                        {% if untersuchung_field.ai_confidence == "high" %}
+                                        <i class="bi bi-check-circle-fill"></i> sicher
+                                        {% elif untersuchung_field.ai_confidence == "medium" %}
+                                        <i class="bi bi-exclamation-circle-fill"></i> mittel
+                                        {% else %}
+                                        <i class="bi bi-question-circle-fill"></i> unsicher
                                         {% endif %}
-                                    </div>
+                                    </span>
+                                    {% endif %}
+                                    <textarea class="form-control w-100 large-textarea"
+                                              name="UNTERSUCHUNGSBEFUNDE"
+                                              id="UNTERSUCHUNGSBEFUNDE"
+                                              rows="12">{{ untersuchung_field.value or '' }}</textarea>
                                 </div>
-                                <div class="field-item">
-                                    <label class="form-label mb-0" for="VERS_GEWICHT">
-                                        Gewicht (kg)
-                                    </label>
-                                    <div class="field-input-wrapper">
-                                        <input type="text" class="form-control"
-                                               name="VERS_GEWICHT"
-                                               id="VERS_GEWICHT"
-                                               value="{{ gewicht_field.value or '' }}">
-                                        {% if gewicht_field.ai_confidence %}
-                                        <span class="badge confidence-{{ gewicht_field.ai_confidence }}"
-                                              title="KI-Konfidenz: {{ gewicht_field.ai_confidence }}">
-                                            {% if gewicht_field.ai_confidence == "high" %}
-                                            <i class="bi bi-check-circle-fill"></i>
-                                            {% elif gewicht_field.ai_confidence == "medium" %}
-                                            <i class="bi bi-exclamation-circle-fill"></i>
-                                            {% else %}
-                                            <i class="bi bi-question-circle-fill"></i>
+
+                                {# Rechte Spalte: Körpergröße und Gewicht untereinander (20%) #}
+                                <div class="body-measurements">
+                                    <div class="measurement-item p-2 rounded {% if groesse_field.status.value == 'unfilled' %}field-unfilled{% elif groesse_field.status.value == 'filled' %}field-filled{% endif %}">
+                                        <label class="form-label mb-0" for="VERS_KOERPERLAENGE">
+                                            Körpergröße (cm)
+                                        </label>
+                                        <div class="measurement-input-wrapper">
+                                            <input type="text" class="form-control"
+                                                   name="VERS_KOERPERLAENGE"
+                                                   id="VERS_KOERPERLAENGE"
+                                                   value="{{ groesse_field.value or '' }}">
+                                            {% if groesse_field.ai_confidence %}
+                                            <span class="badge confidence-{{ groesse_field.ai_confidence }}"
+                                                  title="KI-Konfidenz: {{ groesse_field.ai_confidence }}">
+                                                {% if groesse_field.ai_confidence == "high" %}
+                                                <i class="bi bi-check-circle-fill"></i>
+                                                {% elif groesse_field.ai_confidence == "medium" %}
+                                                <i class="bi bi-exclamation-circle-fill"></i>
+                                                {% else %}
+                                                <i class="bi bi-question-circle-fill"></i>
+                                                {% endif %}
+                                            </span>
                                             {% endif %}
-                                        </span>
-                                        {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="measurement-item p-2 rounded {% if gewicht_field.status.value == 'unfilled' %}field-unfilled{% elif gewicht_field.status.value == 'filled' %}field-filled{% endif %}">
+                                        <label class="form-label mb-0" for="VERS_GEWICHT">
+                                            Gewicht (kg)
+                                        </label>
+                                        <div class="measurement-input-wrapper">
+                                            <input type="text" class="form-control"
+                                                   name="VERS_GEWICHT"
+                                                   id="VERS_GEWICHT"
+                                                   value="{{ gewicht_field.value or '' }}">
+                                            {% if gewicht_field.ai_confidence %}
+                                            <span class="badge confidence-{{ gewicht_field.ai_confidence }}"
+                                                  title="KI-Konfidenz: {{ gewicht_field.ai_confidence }}">
+                                                {% if gewicht_field.ai_confidence == "high" %}
+                                                <i class="bi bi-check-circle-fill"></i>
+                                                {% elif gewicht_field.ai_confidence == "medium" %}
+                                                <i class="bi bi-exclamation-circle-fill"></i>
+                                                {% else %}
+                                                <i class="bi bi-question-circle-fill"></i>
+                                                {% endif %}
+                                            </span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1045,7 +1077,7 @@
 
                             {# Andere Felder der Sektion 7 #}
                             {% for field in section_fields %}
-                                {% if field.field_name not in ["VERS_KOERPERLAENGE", "VERS_GEWICHT"] %}
+                                {% if field.field_name not in ["UNTERSUCHUNGSBEFUNDE", "VERS_KOERPERLAENGE", "VERS_GEWICHT"] %}
                                     {% if field.field_type.value == "text" %}
                                     <div class="mb-3 p-2 rounded {% if field.status.value == 'unfilled' %}field-unfilled{% elif field.status.value == 'filled' %}field-filled{% endif %}">
                                         <label class="form-label fw-bold" for="{{ field.field_name }}">
@@ -1178,7 +1210,7 @@
         {% endfor %}
     </div>
 
-    <div class="mt-4 d-flex gap-2">
+    <div class="mt-5 d-flex gap-2">
         <button type="submit" class="btn btn-success btn-execute" id="generatePdfBtn">
             <i class="bi bi-file-earmark-pdf"></i> PDF erstellen
         </button>
@@ -1372,9 +1404,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentIndex = parseInt(this.dataset.index);
             const nextIndex = currentIndex + 1;
 
-            if (nextIndex <= 4) {
+            if (nextIndex <= 10) {
                 swapDiagnoses(currentIndex, nextIndex);
             }
+        });
+    });
+
+    // Event-Listener für Clear-Buttons
+    document.querySelectorAll('.btn-diagnose-clear').forEach(button => {
+        button.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            clearDiagnose(index);
         });
     });
 });
@@ -1439,6 +1479,44 @@ function swapDiagnoses(index1, index2) {
             setTimeout(() => {
                 el.style.backgroundColor = '';
             }, 300);
+        });
+    }
+}
+
+function clearDiagnose(index) {
+    // Diagnose-Textfeld
+    const diagField = document.getElementById('VERS_DIAGNOSE_' + index);
+    // ICD-Code-Feld
+    const icdField = document.getElementById('VERS_DIAGNOSESCH_' + index);
+
+    if (diagField && icdField) {
+        // Felder leeren
+        diagField.value = '';
+        icdField.value = '';
+
+        // CSS-Klassen aktualisieren
+        const diagParent = diagField.closest('.mb-3');
+        const icdParent = icdField.closest('.mb-3');
+
+        if (diagParent) {
+            diagParent.classList.remove('field-filled');
+            diagParent.classList.add('field-unfilled');
+        }
+
+        if (icdParent) {
+            icdParent.classList.remove('field-filled');
+            icdParent.classList.add('field-unfilled');
+        }
+
+        // Kurze visuelle Feedback-Animation
+        [diagParent, icdParent].forEach(el => {
+            if (el) {
+                el.style.transition = 'background-color 0.3s';
+                el.style.backgroundColor = '#4a1f1f';
+                setTimeout(() => {
+                    el.style.backgroundColor = '';
+                }, 300);
+            }
         });
     }
 }

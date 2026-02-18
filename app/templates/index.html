@@ -87,28 +87,61 @@
                 </button>
             </div>
         </form>
+
+        <!-- S0050 separat generieren (ohne Upload) -->
+        <div id="s0050StandaloneSection" class="d-none s0050-standalone-section">
+            <h3 class="h5 mb-3">S0050 separat ausfüllen</h3>
+            <p class="text-muted mb-3">
+                Generieren Sie S0050 (Honorarabrechnung) direkt mit Ihren Absender-Daten, ohne Dokumente hochzuladen.
+            </p>
+            <form action="/form/S0050/generate-standalone" method="post">
+                <button type="submit" class="btn btn-success btn-execute">
+                    <i class="bi bi-file-earmark-text"></i> S0050 jetzt ausfüllen
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- Container 3: Download -->
 {% if download_url %}
-<div class="card shadow-sm mb-4" id="downloadSection" style="margin-top: 2rem;">
+<div class="card shadow-sm mb-4 download-section-top" id="downloadSection">
     <div class="card-body">
-        <h2 class="card-title mb-3">Generiertes Formular</h2>
-        <div style="margin-bottom: 1.5rem; padding: 1rem; background: #111827; border-radius: 8px;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <i class="bi bi-file-pdf text-danger" style="font-size: 2rem;"></i>
-                <span style="color: #f9fafb; font-weight: 500; font-size: 1.1rem;">{{ pdf_filename or 'ausgefuelltes_formular.pdf' }}</span>
+        <h2 class="card-title mb-3">Generierte Formulare</h2>
+
+        <!-- Hauptformular (z.B. S0051) -->
+        <div class="pdf-card">
+            <div class="pdf-card-left">
+                <i class="bi bi-file-pdf text-danger icon-lg"></i>
+                <span class="pdf-card-title">{{ pdf_filename or 'ausgefuelltes_formular.pdf' }}</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ download_url }}" class="btn btn-success btn-sm" id="downloadBtn" download>
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <a href="{{ download_url }}" class="btn btn-outline-secondary btn-sm" id="printBtn" target="_blank">
+                    <i class="bi bi-printer"></i> Drucken
+                </a>
             </div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="{{ download_url }}" class="btn btn-success btn-execute" id="downloadBtn" download>
-                <i class="bi bi-download"></i> Download
-            </a>
-            <a href="{{ download_url }}" class="btn btn-outline-secondary btn-execute" id="printBtn" target="_blank">
-                <i class="bi bi-printer"></i> Drucken
-            </a>
+
+        <!-- S0050 Honorarabrechnung (falls vorhanden) -->
+        {% if s0050_download_url %}
+        <div class="pdf-card">
+            <div class="pdf-card-left">
+                <i class="bi bi-file-pdf text-danger icon-lg"></i>
+                <span class="pdf-card-title">{{ s0050_pdf_filename or 'S0050_ausgefuellt.pdf' }}</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ s0050_download_url }}" class="btn btn-success btn-sm" id="downloadS0050Btn" download>
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <a href="{{ s0050_download_url }}" class="btn btn-outline-secondary btn-sm" id="printS0050Btn" target="_blank">
+                    <i class="bi bi-printer"></i> Drucken
+                </a>
+            </div>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endif %}

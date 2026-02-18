@@ -1,8 +1,8 @@
-flask==3.1.0
+flask==3.1.2
 gunicorn==23.0.0
 requests==2.32.3
-pikepdf==9.4.2
-pypdf==5.1.0
+pikepdf==10.3.0
+pypdf==6.7.1
 pytesseract==0.3.13
 pdf2image==1.17.0
 python-dotenv==1.0.1

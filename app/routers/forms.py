@@ -74,8 +74,10 @@ def _radio_values_match(a: str | None, b: str | None) -> bool:
 
 def _get_form_registry():
     """Lazy import um zirkulaere Imports zu vermeiden."""
+    from app.form_definitions.s0050 import S0050_DEFINITION
     from app.form_definitions.s0051 import S0051_DEFINITION
     return {
+        "S0050": S0050_DEFINITION,
         "S0051": S0051_DEFINITION,
     }
 
@@ -87,13 +89,26 @@ def index():
     form_id = request.args.get("form")
     download_url = None
     pdf_filename = None
+    s0050_download_url = None
+    s0050_pdf_filename = None
+
     if session_id and form_id:
         output_path = settings.OUTPUT_DIR / f"{form_id}_{session_id}.pdf"
         if output_path.exists():
             download_url = url_for("forms.download_file", form_id=form_id, session_id=session_id)
             pdf_filename = f"{form_id}_ausgefuellt.pdf"
+
+            # Prüfe, ob S0050 auch existiert (bei S0051-Generierung)
+            if form_id == "S0051":
+                s0050_output_path = settings.OUTPUT_DIR / f"S0050_{session_id}.pdf"
+                if s0050_output_path.exists():
+                    s0050_download_url = url_for("forms.download_file", form_id="S0050", session_id=session_id)
+                    s0050_pdf_filename = "S0050_ausgefuellt.pdf"
+
     return render_template("index.html", forms=_get_form_registry(),
-                           download_url=download_url, pdf_filename=pdf_filename, completed_form=form_id if download_url else None)
+                           download_url=download_url, pdf_filename=pdf_filename,
+                           completed_form=form_id if download_url else None,
+                           s0050_download_url=s0050_download_url, s0050_pdf_filename=s0050_pdf_filename)
 
 
 @forms_bp.route("/form/<form_id>/thumbnail")
@@ -226,14 +241,29 @@ def process_upload(form_id):
             logger = logging.getLogger(__name__)
             logger.warning(f"Fehler beim Befüllen der Behandlungsfelder mit Sender-Daten: {e}")
 
-    # Automatische Wertkopie: PAT_NAME -> VERS_NAME (für Review-Anzeige)
+    # Automatische Wertkopie: PAT_* -> VERS_* (für Review-Anzeige)
     fields_by_name = {f.field_name: f for f in fields}
+
+    # Name kopieren
     pat_name = fields_by_name.get("PAT_NAME")
     vers_name = fields_by_name.get("VERS_NAME")
     if pat_name and vers_name and pat_name.value and not vers_name.value:
         vers_name.value = pat_name.value
         vers_name.status = FieldStatus.FILLED
         vers_name.ai_confidence = pat_name.ai_confidence
+
+    # Adresse kopieren
+    for pat_field, vers_field in [
+        ("PAT_STRASSE_HNR", "VERS_STRASSE_HNR"),
+        ("PAT_PLZ", "VERS_PLZ"),
+        ("PAT_WOHNORT", "VERS_WOHNORT"),
+    ]:
+        pat = fields_by_name.get(pat_field)
+        vers = fields_by_name.get(vers_field)
+        if pat and vers and pat.value and not vers.value:
+            vers.value = pat.value
+            vers.status = FieldStatus.FILLED
+            vers.ai_confidence = pat.ai_confidence
 
     # Session speichern
     sessions[session_id] = {
@@ -264,21 +294,29 @@ def review_page(form_id, session_id):
     for f in fields:
         sections.setdefault(f.section, []).append(f)
 
-    section_titles = {
-        0: "Kopfdaten / Identifikation",
-        1: "Behandlung",
-        2: "Diagnosen",
-        3: "Anamnese",
-        4: "Funktionseinschränkungen",
-        5: "Aktivitäten und Teilhabe",
-        6: "Therapie",
-        7: "Untersuchungsbefunde",
-        8: "Medizinisch-technische Befunde",
-        9: "Lebensumstände",
-        10: "Risikofaktoren",
-        11: "Arbeitsunfähigkeit / Prognose",
-        12: "Bemerkungen",
-    }
+    # Formular-spezifische Sektionsnamen
+    if form_id == "S0050":
+        section_titles = {
+            0: "Kopfdaten / Antragsart",
+            1: "Personalien",
+            2: "Zahlungsempfänger / Bankdaten",
+        }
+    else:
+        section_titles = {
+            0: "Kopfdaten / Identifikation",
+            1: "Behandlung",
+            2: "Diagnosen",
+            3: "Anamnese",
+            4: "Funktionseinschränkungen",
+            5: "Aktivitäten und Teilhabe",
+            6: "Therapie",
+            7: "Untersuchungsbefunde",
+            8: "Medizinisch-technische Befunde",
+            9: "Lebensumstände",
+            10: "Risikofaktoren",
+            11: "Arbeitsunfähigkeit / Prognose",
+            12: "Bemerkungen",
+        }
 
     long_text_fields = {
         "ANAMNESE", "FUNKTIONSEINSCHRAENKUNGEN", "THERAPIE",
@@ -439,6 +477,14 @@ def generate_pdf(form_id, session_id):
     except Exception as e:
         logger.warning(f"Konnte stabile Output-Datei nicht aktualisieren: {e}")
 
+    # Wenn S0051 generiert wird, auch S0050 automatisch befüllen
+    if form_id == "S0051":
+        try:
+            _generate_s0050_from_s0051(session_id, fields_by_name)
+            logger.info(f"S0050 automatisch generiert für Session {session_id}")
+        except Exception as e:
+            logger.error(f"Fehler beim automatischen Generieren von S0050: {e}")
+
     return redirect(url_for("forms.index", form=form_id, session=session_id))
 
 
@@ -498,6 +544,153 @@ def warmup_ollama():
 SENDER_DATA_FILE = settings.FORM_TEMPLATE_DIR / "sender_data.json"
 
 
+def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
+    """Generiert S0050 automatisch aus S0051-Daten und sender_data.json."""
+    from app.services import pdf_filler
+    from app.models.form_schema import FieldStatus
+    from app.form_definitions.s0050 import S0050_DEFINITION
+    from datetime import datetime
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # S0050 Felder erstellen
+    s0050_fields = [f.model_copy() for f in S0050_DEFINITION.fields]
+    s0050_fields_by_name = {f.field_name: f for f in s0050_fields}
+
+    # Sender-Daten laden
+    sender_data = {}
+    if SENDER_DATA_FILE.exists():
+        try:
+            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+                sender_data = json.load(f)
+        except Exception as e:
+            logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
+
+    # Versicherungsnummer und Kennzeichen von S0051 übernehmen
+    vsnr = s0051_fields.get("PAF_VSNR_trim")
+    kennz = s0051_fields.get("PAF_AIGR")
+
+    if vsnr and vsnr.value:
+        s0050_fields_by_name["PAF_VSNR_trim"].value = vsnr.value
+        s0050_fields_by_name["PAF_VSNR_trim"].status = FieldStatus.MANUAL
+
+    if kennz and kennz.value:
+        s0050_fields_by_name["PAF_AIGR"].value = kennz.value
+        s0050_fields_by_name["PAF_AIGR"].status = FieldStatus.MANUAL
+
+    # Antragsart von S0051 übernehmen (AW_1)
+    for s0051_field_name in ["AW_1_med_reha", "AW_1_onko_reha", "AW_1_lta", "AW_1_emr"]:
+        s0051_field = s0051_fields.get(s0051_field_name)
+        if s0051_field and s0051_field.value == "ja":
+            # Gleicher Feldname in S0050
+            s0050_field = s0050_fields_by_name.get(s0051_field_name)
+            if s0050_field:
+                s0050_field.value = "ja"
+                s0050_field.status = FieldStatus.MANUAL
+            break
+
+    # Vergütung für S0051 aktivieren
+    s0050_fields_by_name["AW_Verguetung_BB"].value = "ja"
+    s0050_fields_by_name["AW_Verguetung_BB"].status = FieldStatus.MANUAL
+
+    # Patientendaten von S0051 übernehmen
+    pat_name = s0051_fields.get("PAT_NAME")
+    pat_gebdat = s0051_fields.get("PAT_Geburtsdatum")
+
+    if pat_name and pat_name.value:
+        s0050_fields_by_name["PAT_NAME"].value = pat_name.value
+        s0050_fields_by_name["PAT_NAME"].status = FieldStatus.MANUAL
+
+    if pat_gebdat and pat_gebdat.value:
+        s0050_fields_by_name["PAT_Geburtsdatum"].value = pat_gebdat.value
+        s0050_fields_by_name["PAT_Geburtsdatum"].status = FieldStatus.MANUAL
+
+    # Versicherte/r Daten (normalerweise identisch mit Patientin/Patient)
+    vers_name = s0051_fields.get("VERS_NAME")
+    vers_gebdat = s0051_fields.get("VERS_GEBDAT")
+
+    if vers_name and vers_name.value and vers_name.value != pat_name.value if pat_name else True:
+        s0050_fields_by_name["VERS_NAME"].value = vers_name.value
+        s0050_fields_by_name["VERS_NAME"].status = FieldStatus.MANUAL
+
+    if vers_gebdat and vers_gebdat.value and vers_gebdat.value != pat_gebdat.value if pat_gebdat else True:
+        s0050_fields_by_name["VERS_GEBDAT"].value = vers_gebdat.value
+        s0050_fields_by_name["VERS_GEBDAT"].status = FieldStatus.MANUAL
+
+    # Absender-Daten befüllen
+    if sender_data:
+        # IBAN
+        if sender_data.get("iban"):
+            s0050_fields_by_name["KONTOINH_IBAN"].value = sender_data["iban"]
+            s0050_fields_by_name["KONTOINH_IBAN"].status = FieldStatus.MANUAL
+
+        # Geldinstitut
+        if sender_data.get("kreditinstitut"):
+            s0050_fields_by_name["KONTOINH_BANK_1"].value = sender_data["kreditinstitut"]
+            s0050_fields_by_name["KONTOINH_BANK_1"].status = FieldStatus.MANUAL
+
+        # Kontoinhaber: Vorname + Name
+        kontoinhaber_parts = []
+        if sender_data.get("vorname"):
+            kontoinhaber_parts.append(sender_data["vorname"])
+        if sender_data.get("name"):
+            kontoinhaber_parts.append(sender_data["name"])
+        if kontoinhaber_parts:
+            s0050_fields_by_name["KONTOINH_NAME_1"].value = " ".join(kontoinhaber_parts)
+            s0050_fields_by_name["KONTOINH_NAME_1"].status = FieldStatus.MANUAL
+
+        # Adresse: Strasse + PLZ + Ort
+        adresse_parts = []
+        if sender_data.get("strasse"):
+            strasse = sender_data["strasse"]
+            if sender_data.get("hausnummer"):
+                strasse += " " + sender_data["hausnummer"]
+            adresse_parts.append(strasse)
+        if sender_data.get("plz") and sender_data.get("ort"):
+            adresse_parts.append(f"{sender_data['plz']} {sender_data['ort']}")
+        if adresse_parts:
+            s0050_fields_by_name["KONTOINH_ORT_1"].value = ", ".join(adresse_parts)
+            s0050_fields_by_name["KONTOINH_ORT_1"].status = FieldStatus.MANUAL
+
+    # Aktuelles Datum
+    current_date = datetime.now().strftime("%d.%m.%Y")
+
+    # Rechnungsdatum
+    s0050_fields_by_name["RECHNUNG_VOM"].value = current_date
+    s0050_fields_by_name["RECHNUNG_VOM"].status = FieldStatus.MANUAL
+
+    # Ort, Datum (für ARZT_ORT): [aktuelles Datum] + Ort
+    ort_datum = current_date
+    if sender_data.get("ort"):
+        ort_datum = f"{sender_data['ort']}, {current_date}"
+    s0050_fields_by_name["ARZT_ORT"].value = ort_datum
+    s0050_fields_by_name["ARZT_ORT"].status = FieldStatus.MANUAL
+
+    # Unterschrift (ARZT_UNTERS): Vorname + Name
+    arzt_unters_parts = []
+    if sender_data.get("vorname"):
+        arzt_unters_parts.append(sender_data["vorname"])
+    if sender_data.get("name"):
+        arzt_unters_parts.append(sender_data["name"])
+    if arzt_unters_parts:
+        s0050_fields_by_name["ARZT_UNTERS"].value = " ".join(arzt_unters_parts)
+        s0050_fields_by_name["ARZT_UNTERS"].status = FieldStatus.MANUAL
+
+    # S0050 PDF generieren
+    s0050_template_path = settings.FORM_TEMPLATE_DIR / "S0050.pdf"
+    s0050_output_path = settings.OUTPUT_DIR / f"S0050_{session_id}.pdf"
+
+    pdf_filler.fill_pdf(s0050_template_path, s0050_output_path, s0050_fields)
+
+    # Stabile Output-Datei
+    try:
+        stable_output_path = settings.OUTPUT_DIR / "S0050_ausgefuellt.pdf"
+        shutil.copy2(s0050_output_path, stable_output_path)
+        logger.debug(f"S0050 stabile Output-Datei aktualisiert: {stable_output_path}")
+    except Exception as e:
+        logger.warning(f"Konnte S0050 stabile Output-Datei nicht aktualisieren: {e}")
+
+
 @forms_bp.route("/api/sender-data", methods=["GET"])
 def get_sender_data():
     """Absender-Daten abrufen."""
@@ -536,3 +729,104 @@ def save_sender_data():
         logger = logging.getLogger(__name__)
         logger.error(f"Fehler beim Speichern der Absender-Daten: {e}")
         return jsonify({"error": "Fehler beim Speichern der Absender-Daten"}), 500
+
+
+@forms_bp.route("/form/S0050/generate-standalone", methods=["POST"])
+def generate_s0050_standalone():
+    """S0050 separat generieren (nur mit sender_data.json, ohne Upload)."""
+    from app.services import pdf_filler
+    from app.models.form_schema import FieldStatus
+    from app.form_definitions.s0050 import S0050_DEFINITION
+    from datetime import datetime
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Neue Session-ID generieren
+    session_id = str(uuid.uuid4())
+
+    # S0050 Felder erstellen
+    s0050_fields = [f.model_copy() for f in S0050_DEFINITION.fields]
+    s0050_fields_by_name = {f.field_name: f for f in s0050_fields}
+
+    # Sender-Daten laden
+    sender_data = {}
+    if SENDER_DATA_FILE.exists():
+        try:
+            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+                sender_data = json.load(f)
+        except Exception as e:
+            logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
+            return jsonify({"error": "Fehler beim Laden der Absender-Daten"}), 500
+
+    # Absender-Daten befüllen
+    if sender_data:
+        # IBAN
+        if sender_data.get("iban"):
+            s0050_fields_by_name["KONTOINH_IBAN"].value = sender_data["iban"]
+            s0050_fields_by_name["KONTOINH_IBAN"].status = FieldStatus.MANUAL
+
+        # Geldinstitut
+        if sender_data.get("kreditinstitut"):
+            s0050_fields_by_name["KONTOINH_BANK_1"].value = sender_data["kreditinstitut"]
+            s0050_fields_by_name["KONTOINH_BANK_1"].status = FieldStatus.MANUAL
+
+        # Kontoinhaber: Vorname + Name
+        kontoinhaber_parts = []
+        if sender_data.get("vorname"):
+            kontoinhaber_parts.append(sender_data["vorname"])
+        if sender_data.get("name"):
+            kontoinhaber_parts.append(sender_data["name"])
+        if kontoinhaber_parts:
+            s0050_fields_by_name["KONTOINH_NAME_1"].value = " ".join(kontoinhaber_parts)
+            s0050_fields_by_name["KONTOINH_NAME_1"].status = FieldStatus.MANUAL
+
+        # Adresse: Strasse + PLZ + Ort
+        adresse_parts = []
+        if sender_data.get("strasse"):
+            strasse = sender_data["strasse"]
+            if sender_data.get("hausnummer"):
+                strasse += " " + sender_data["hausnummer"]
+            adresse_parts.append(strasse)
+        if sender_data.get("plz") and sender_data.get("ort"):
+            adresse_parts.append(f"{sender_data['plz']} {sender_data['ort']}")
+        if adresse_parts:
+            s0050_fields_by_name["KONTOINH_ORT_1"].value = ", ".join(adresse_parts)
+            s0050_fields_by_name["KONTOINH_ORT_1"].status = FieldStatus.MANUAL
+
+    # Aktuelles Datum
+    current_date = datetime.now().strftime("%d.%m.%Y")
+
+    # Rechnungsdatum
+    s0050_fields_by_name["RECHNUNG_VOM"].value = current_date
+    s0050_fields_by_name["RECHNUNG_VOM"].status = FieldStatus.MANUAL
+
+    # Ort, Datum (für ARZT_ORT): [aktuelles Datum] + Ort
+    ort_datum = current_date
+    if sender_data.get("ort"):
+        ort_datum = f"{sender_data['ort']}, {current_date}"
+    s0050_fields_by_name["ARZT_ORT"].value = ort_datum
+    s0050_fields_by_name["ARZT_ORT"].status = FieldStatus.MANUAL
+
+    # Unterschrift (ARZT_UNTERS): Vorname + Name
+    arzt_unters_parts = []
+    if sender_data.get("vorname"):
+        arzt_unters_parts.append(sender_data["vorname"])
+    if sender_data.get("name"):
+        arzt_unters_parts.append(sender_data["name"])
+    if arzt_unters_parts:
+        s0050_fields_by_name["ARZT_UNTERS"].value = " ".join(arzt_unters_parts)
+        s0050_fields_by_name["ARZT_UNTERS"].status = FieldStatus.MANUAL
+
+    # Vergütung für S0051 aktivieren (Standard)
+    s0050_fields_by_name["AW_Verguetung_BB"].value = "ja"
+    s0050_fields_by_name["AW_Verguetung_BB"].status = FieldStatus.MANUAL
+
+    # Session speichern für Review
+    sessions[session_id] = {
+        "form_id": "S0050",
+        "fields": s0050_fields,
+        "source_text": "",
+    }
+
+    # Zur Review-Seite weiterleiten
+    return redirect(url_for("forms.review_page", form_id="S0050", session_id=session_id))
