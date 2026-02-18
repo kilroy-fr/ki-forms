@@ -36,6 +36,7 @@ ki-forms/
 ├── app/
 │   ├── main.py                    # Flask App-Initialisierung
 │   ├── config.py                  # Konfiguration & Umgebungsvariablen
+│   ├── form_registry.py           # Zentrale Formular-Registry
 │   ├── routers/
 │   │   └── forms.py               # Haupt-Router für Formular-Workflow
 │   ├── services/
@@ -43,9 +44,13 @@ ki-forms/
 │   │   └── field_extractor.py     # Ollama-basierte KI-Extraktion
 │   ├── models/
 │   │   └── form_schema.py         # Datenmodelle für Formulare
-│   ├── form_definitions/          # Formular-spezifische Definitionen
-│   │   ├── s0051.py               # S0051 Formular-Definition
-│   │   └── s0050.py               # S0050 Formular-Definition
+│   ├── form_handlers/             # Formular-spezifische Handler (NEU)
+│   │   ├── base_handler.py        # Abstrakte Basis-Klasse
+│   │   ├── s0050_handler.py       # S0050-Handler
+│   │   └── s0051_handler.py       # S0051-Handler
+│   ├── form_definitions/          # Formular-Feld-Definitionen
+│   │   ├── s0051.py               # S0051 Formular-Felder
+│   │   └── s0050.py               # S0050 Formular-Felder
 │   ├── templates/                 # HTML Templates
 │   │   ├── index.html
 │   │   ├── review.html
@@ -178,13 +183,115 @@ Das Projekt enthält verschiedene Test- und Debug-Skripte im Root:
 - Commit-Messages auf Deutsch
 - Auto-Versionierung über `VERSION` Datei
 
+## Architektur: Form Handler Pattern
+
+**Seit 2026-02-18**: Das Projekt nutzt ein Handler-basiertes Pattern für bessere Skalierbarkeit.
+
+### Handler-Konzept
+
+Jedes Formular hat drei Komponenten:
+
+1. **FormDefinition** (`app/form_definitions/s####.py`)
+   - Liste aller Felder mit Typen, Labels, Sektionen
+   - Reine Datenstruktur, keine Logik
+   - Beispiel: `S0051_DEFINITION`
+
+2. **FormHandler** (`app/form_handlers/s####_handler.py`)
+   - Erbt von `BaseFormHandler`
+   - Enthält formular-spezifische Logik:
+     - Sektionsnamen (`get_section_titles()`)
+     - Long-Text-Felder (`get_long_text_fields()`)
+     - Preprocessing Hook (vor KI-Extraktion)
+     - Postprocessing Hook (nach KI-Extraktion, z.B. Sender-Daten einfügen)
+     - Finalization Hook (z.B. S0050 aus S0051 generieren)
+
+3. **Registry-Eintrag** (`app/form_registry.py`)
+   - Verbindet Definition und Handler
+   - Metadaten (Template-Dateiname, abhängige Formulare)
+
+### Lifecycle Hooks
+
+Handler bieten vier Hooks für formular-spezifische Logik:
+
+```python
+class MyFormHandler(BaseFormHandler):
+    def preprocess_fields(self, fields, source_text, session_data):
+        """Hook VOR KI-Extraktion - z.B. Felder hinzufügen"""
+        return fields
+
+    def postprocess_fields(self, fields, extracted_results, session_data):
+        """Hook NACH KI-Extraktion - z.B. Sender-Daten einfügen, Feldkopien"""
+        return fields
+
+    def on_generate_pdf(self, fields, session_id, output_path):
+        """Hook beim PDF-Generieren - z.B. Logging"""
+        pass
+
+    def on_finalize(self, fields_by_name, session_id):
+        """Hook nach Finalisierung - z.B. abhängige PDFs generieren"""
+        pass
+```
+
 ## Typische Aufgaben
 
 ### Neues Formular hinzufügen
-1. Formular-Template in `data/` ablegen
-2. Neue Definition in `app/form_definitions/s####.py` erstellen
-3. Field-Mapping definieren
-4. In `forms.py` registrieren
+
+**Nur 3 Dateien erforderlich:**
+
+1. **PDF-Template** in `data/` ablegen (z.B. `S0099.pdf`)
+
+2. **Formular-Definition** erstellen: `app/form_definitions/s0099.py`
+   ```python
+   from app.models.form_schema import FormField, FieldType, FormDefinition
+
+   S0099_FIELDS = [
+       FormField(field_name="PATIENT_NAME", field_type=FieldType.TEXT, ...),
+       # ... weitere Felder
+   ]
+
+   S0099_DEFINITION = FormDefinition(
+       form_id="S0099",
+       form_title="Mein neues Formular",
+       fields=S0099_FIELDS,
+   )
+   ```
+
+3. **Handler** erstellen: `app/form_handlers/s0099_handler.py`
+   ```python
+   from .base_handler import BaseFormHandler
+
+   class S0099FormHandler(BaseFormHandler):
+       def get_section_titles(self):
+           return {
+               0: "Kopfdaten",
+               1: "Patienteninformationen",
+               # ...
+           }
+
+       def get_long_text_fields(self):
+           return {"ANAMNESE", "BEMERKUNGEN"}
+
+       # Optional: Hooks überschreiben für spezifische Logik
+   ```
+
+4. **Registrieren** in `app/form_registry.py`
+   ```python
+   # Import hinzufügen
+   from app.form_definitions.s0099 import S0099_DEFINITION
+   from app.form_handlers.s0099_handler import S0099FormHandler
+
+   # In _initialize_registry():
+   registry.register(FormRegistryEntry(
+       form_id="S0099",
+       definition=S0099_DEFINITION,
+       handler_class=S0099FormHandler,
+       template_filename="S0099.pdf",
+       description="Mein neues Formular",
+       enabled=True,
+   ))
+   ```
+
+**Das war's!** Keine Änderungen an `forms.py` nötig.
 
 ### Feld-Extraktion verbessern
 - `app/services/field_extractor.py` anpassen

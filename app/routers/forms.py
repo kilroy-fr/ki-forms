@@ -73,13 +73,13 @@ def _radio_values_match(a: str | None, b: str | None) -> bool:
 
 
 def _get_form_registry():
-    """Lazy import um zirkulaere Imports zu vermeiden."""
-    from app.form_definitions.s0050 import S0050_DEFINITION
-    from app.form_definitions.s0051 import S0051_DEFINITION
-    return {
-        "S0050": S0050_DEFINITION,
-        "S0051": S0051_DEFINITION,
-    }
+    """
+    Liefert alle Formular-Definitionen (Backwards-Compatibility).
+
+    DEPRECATED: Nutze get_form_registry() aus app.form_registry stattdessen.
+    """
+    from app.form_registry import get_form_registry
+    return get_form_registry().get_all_definitions()
 
 
 @forms_bp.route("/")
@@ -150,12 +150,17 @@ def process_upload(form_id):
     """Dateien hochladen, Text extrahieren, KI-Extraktion durchfuehren."""
     from app.services import pdf_reader, field_extractor
     from app.models.form_schema import FieldStatus
+    from app.form_registry import get_form_registry
 
-    registry = _get_form_registry()
-    if form_id not in registry:
+    # Handler und Definition aus Registry holen
+    registry = get_form_registry()
+    registry_entry = registry.get(form_id)
+    if not registry_entry:
         abort(404, "Formular nicht gefunden")
 
-    form_def = registry[form_id]
+    handler = registry.create_handler(form_id)
+    form_def = registry_entry.definition
+
     session_id = str(uuid.uuid4())
     session_dir = settings.UPLOAD_DIR / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -176,94 +181,24 @@ def process_upload(form_id):
     # Text aus allen PDFs extrahieren
     source_text = pdf_reader.extract_from_multiple(saved_paths)
 
+    # Preprocessing Hook (falls Handler spezielle Logik braucht)
+    fields = [f.model_copy() for f in form_def.fields]
+    fields = handler.preprocess_fields(fields, source_text)
+
     # KI-Feldextraktion
-    extraction_results = field_extractor.extract_fields(
-        form_def.fields, source_text
-    )
+    extraction_results = field_extractor.extract_fields(fields, source_text)
 
     # Ergebnisse in Felder zusammenfuehren
     result_map = {r.field_name: r for r in extraction_results}
-    fields = []
-    for f in form_def.fields:
-        field_copy = f.model_copy()
-        if f.field_name in result_map:
-            r = result_map[f.field_name]
-            field_copy.value = r.value
-            field_copy.status = FieldStatus.FILLED
-            field_copy.ai_confidence = r.confidence
-        fields.append(field_copy)
+    for field in fields:
+        if field.field_name in result_map:
+            r = result_map[field.field_name]
+            field.value = r.value
+            field.status = FieldStatus.FILLED
+            field.ai_confidence = r.confidence
 
-    # Sender-Daten laden und Behandlungsfelder automatisch befüllen
-    if SENDER_DATA_FILE.exists():
-        try:
-            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
-                sender_data = json.load(f)
-
-            # Name der Ärztin/des Arztes zusammensetzen: Titel + Vorname + Name
-            arzt_name_parts = []
-            if sender_data.get("titel"):
-                arzt_name_parts.append(sender_data["titel"])
-            if sender_data.get("vorname"):
-                arzt_name_parts.append(sender_data["vorname"])
-            if sender_data.get("name"):
-                arzt_name_parts.append(sender_data["name"])
-            arzt_name = " ".join(arzt_name_parts)
-
-            # Aktuelles Datum im Format TT.MM.JJJJ
-            from datetime import datetime
-            current_date = datetime.now().strftime("%d.%m.%Y")
-
-            # Unterschrift-Feld: "Name, Datum"
-            arzt_unters_value = ""
-            if arzt_name:
-                arzt_unters_value = f"{arzt_name}, {current_date}"
-
-            # Felder befüllen
-            for field in fields:
-                if field.field_name == "NAME_DER_ÄRZTIN" and arzt_name:
-                    field.value = arzt_name
-                    field.status = FieldStatus.FILLED
-                    field.ai_confidence = "high"
-                elif field.field_name == "FACHRICHTUNG" and sender_data.get("fachrichtung"):
-                    field.value = sender_data["fachrichtung"]
-                    field.status = FieldStatus.FILLED
-                    field.ai_confidence = "high"
-                elif field.field_name == "TELEFONNUMMER_FÜR_RÜCKFRAGEN" and sender_data.get("telefon"):
-                    field.value = sender_data["telefon"]
-                    field.status = FieldStatus.FILLED
-                    field.ai_confidence = "high"
-                elif field.field_name == "ARZT_UNTERS_DATUM" and arzt_unters_value:
-                    field.value = arzt_unters_value
-                    field.status = FieldStatus.FILLED
-                    field.ai_confidence = "high"
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Fehler beim Befüllen der Behandlungsfelder mit Sender-Daten: {e}")
-
-    # Automatische Wertkopie: PAT_* -> VERS_* (für Review-Anzeige)
-    fields_by_name = {f.field_name: f for f in fields}
-
-    # Name kopieren
-    pat_name = fields_by_name.get("PAT_NAME")
-    vers_name = fields_by_name.get("VERS_NAME")
-    if pat_name and vers_name and pat_name.value and not vers_name.value:
-        vers_name.value = pat_name.value
-        vers_name.status = FieldStatus.FILLED
-        vers_name.ai_confidence = pat_name.ai_confidence
-
-    # Adresse kopieren
-    for pat_field, vers_field in [
-        ("PAT_STRASSE_HNR", "VERS_STRASSE_HNR"),
-        ("PAT_PLZ", "VERS_PLZ"),
-        ("PAT_WOHNORT", "VERS_WOHNORT"),
-    ]:
-        pat = fields_by_name.get(pat_field)
-        vers = fields_by_name.get(vers_field)
-        if pat and vers and pat.value and not vers.value:
-            vers.value = pat.value
-            vers.status = FieldStatus.FILLED
-            vers.ai_confidence = pat.ai_confidence
+    # Postprocessing Hook (Sender-Daten, Feldkopien, etc.)
+    fields = handler.postprocess_fields(fields, result_map)
 
     # Session speichern
     sessions[session_id] = {
@@ -279,12 +214,19 @@ def process_upload(form_id):
 def review_page(form_id, session_id):
     """Felder pruefen und bearbeiten."""
     from app.models.form_schema import FieldStatus
+    from app.form_registry import get_form_registry
 
     session = sessions.get(session_id)
     if not session:
         abort(404, "Sitzung nicht gefunden")
 
-    registry = _get_form_registry()
+    # Handler und Definition aus Registry holen
+    registry = get_form_registry()
+    registry_entry = registry.get(form_id)
+    if not registry_entry:
+        abort(404, "Formular nicht gefunden")
+
+    handler = registry.create_handler(form_id)
     fields = session["fields"]
     filled = [f for f in fields if f.status == FieldStatus.FILLED]
     unfilled = [f for f in fields if f.status == FieldStatus.UNFILLED]
@@ -294,39 +236,13 @@ def review_page(form_id, session_id):
     for f in fields:
         sections.setdefault(f.section, []).append(f)
 
-    # Formular-spezifische Sektionsnamen
-    if form_id == "S0050":
-        section_titles = {
-            0: "Kopfdaten / Antragsart",
-            1: "Personalien",
-            2: "Zahlungsempfänger / Bankdaten",
-        }
-    else:
-        section_titles = {
-            0: "Kopfdaten / Identifikation",
-            1: "Behandlung",
-            2: "Diagnosen",
-            3: "Anamnese",
-            4: "Funktionseinschränkungen",
-            5: "Aktivitäten und Teilhabe",
-            6: "Therapie",
-            7: "Untersuchungsbefunde",
-            8: "Medizinisch-technische Befunde",
-            9: "Lebensumstände",
-            10: "Risikofaktoren",
-            11: "Arbeitsunfähigkeit / Prognose",
-            12: "Bemerkungen",
-        }
-
-    long_text_fields = {
-        "ANAMNESE", "FUNKTIONSEINSCHRAENKUNGEN", "THERAPIE",
-        "UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE", "LEBENSUMSTAENDE",
-        "BEMERKUNGEN",
-    }
+    # Handler liefert Sektionsnamen und Long-Text-Felder
+    section_titles = handler.get_section_titles()
+    long_text_fields = handler.get_long_text_fields()
 
     return render_template(
         "review.html",
-        form=registry[form_id],
+        form=registry_entry.definition,
         session_id=session_id,
         sections=dict(sorted(sections.items())),
         section_titles=section_titles,
@@ -342,10 +258,17 @@ def generate_pdf(form_id, session_id):
     """Ausgefuelltes PDF generieren."""
     from app.services import pdf_filler
     from app.models.form_schema import FieldStatus, FieldType
+    from app.form_registry import get_form_registry
 
     session = sessions.get(session_id)
     if not session:
         abort(404, "Sitzung nicht gefunden")
+
+    # Handler aus Registry holen
+    registry = get_form_registry()
+    handler = registry.create_handler(form_id)
+    if not handler:
+        abort(404, "Formular nicht gefunden")
 
     # Formulardaten vom User uebernehmen
     fields = session["fields"]
@@ -477,13 +400,8 @@ def generate_pdf(form_id, session_id):
     except Exception as e:
         logger.warning(f"Konnte stabile Output-Datei nicht aktualisieren: {e}")
 
-    # Wenn S0051 generiert wird, auch S0050 automatisch befüllen
-    if form_id == "S0051":
-        try:
-            _generate_s0050_from_s0051(session_id, fields_by_name)
-            logger.info(f"S0050 automatisch generiert für Session {session_id}")
-        except Exception as e:
-            logger.error(f"Fehler beim automatischen Generieren von S0050: {e}")
+    # Handler-Hook: Formular-spezifische Finalisierung (z.B. S0050 aus S0051 generieren)
+    handler.on_finalize(fields_by_name, session_id)
 
     return redirect(url_for("forms.index", form=form_id, session=session_id))
 
@@ -491,14 +409,20 @@ def generate_pdf(form_id, session_id):
 @forms_bp.route("/form/<form_id>/download/<session_id>")
 def download_page(form_id, session_id):
     """Download-Seite."""
-    registry = _get_form_registry()
+    from app.form_registry import get_form_registry
+
+    registry = get_form_registry()
+    registry_entry = registry.get(form_id)
+    if not registry_entry:
+        abort(404, "Formular nicht gefunden")
+
     output_path = settings.OUTPUT_DIR / f"{form_id}_{session_id}.pdf"
     if not output_path.exists():
         abort(404, "PDF nicht gefunden")
 
     return render_template(
         "download.html",
-        form=registry[form_id],
+        form=registry_entry.definition,
         session_id=session_id,
         download_url=url_for("forms.download_file", form_id=form_id, session_id=session_id),
     )
@@ -544,6 +468,39 @@ def warmup_ollama():
 SENDER_DATA_FILE = settings.FORM_TEMPLATE_DIR / "sender_data.json"
 
 
+def _load_sender_data():
+    """
+    Hilfsfunktion: Lädt Absender-Daten aus sender_data.json.
+    Unterstützt sowohl das neue Format (Array von Ärzten) als auch das alte Format (einzelnes Objekt).
+    Gibt eine Liste von Ärzten zurück.
+    """
+    if not SENDER_DATA_FILE.exists():
+        return []
+
+    try:
+        with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Neues Format: {"doctors": [...]}
+        if isinstance(data, dict) and "doctors" in data:
+            return data["doctors"]
+
+        # Altes Format: direktes Objekt mit Feldern wie "anrede", "titel", etc.
+        # Prüfen ob es ein Arzt-Objekt ist (hat mindestens eines der typischen Felder)
+        if isinstance(data, dict) and any(key in data for key in ["anrede", "titel", "vorname", "name", "praxis"]):
+            # Konvertiere zu neuem Format und speichere
+            new_data = {"doctors": [data]}
+            with open(SENDER_DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(new_data, f, ensure_ascii=False, indent=2)
+            return [data]
+
+        # Leeres oder ungültiges Format
+        return []
+    except Exception as e:
+        logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
+        return []
+
+
 def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
     """Generiert S0050 automatisch aus S0051-Daten und sender_data.json."""
     from app.services import pdf_filler
@@ -559,12 +516,10 @@ def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
 
     # Sender-Daten laden
     sender_data = {}
-    if SENDER_DATA_FILE.exists():
-        try:
-            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
-                sender_data = json.load(f)
-        except Exception as e:
-            logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
+    doctors = _load_sender_data()
+    if doctors:
+        # Verwende den ersten Arzt (Standard)
+        sender_data = doctors[0]
 
     # Versicherungsnummer und Kennzeichen von S0051 übernehmen
     vsnr = s0051_fields.get("PAF_VSNR_trim")
@@ -693,40 +648,45 @@ def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
 
 @forms_bp.route("/api/sender-data", methods=["GET"])
 def get_sender_data():
-    """Absender-Daten abrufen."""
+    """Absender-Daten abrufen (Array von bis zu 5 Ärzten)."""
     try:
-        if SENDER_DATA_FILE.exists():
-            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return jsonify(data), 200
-        else:
-            return jsonify({}), 200
+        doctors = _load_sender_data()
+        return jsonify({"doctors": doctors}), 200
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Fehler beim Laden der Absender-Daten: {e}")
         return jsonify({"error": "Fehler beim Laden der Absender-Daten"}), 500
 
 
 @forms_bp.route("/api/sender-data", methods=["POST"])
 def save_sender_data():
-    """Absender-Daten speichern."""
+    """Absender-Daten speichern (Array von bis zu 5 Ärzten)."""
     try:
         data = request.get_json()
         if not data:
             return jsonify({"error": "Keine Daten empfangen"}), 400
+
+        # Erwarte {"doctors": [...]}
+        if "doctors" not in data:
+            return jsonify({"error": "Ungültiges Format: 'doctors' fehlt"}), 400
+
+        doctors = data["doctors"]
+
+        # Validierung: Maximal 5 Ärzte
+        if not isinstance(doctors, list):
+            return jsonify({"error": "Ungültiges Format: 'doctors' muss ein Array sein"}), 400
+
+        if len(doctors) > 5:
+            return jsonify({"error": "Maximal 5 Ärzte erlaubt"}), 400
 
         # Stelle sicher, dass das Verzeichnis existiert
         SENDER_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
 
         # Speichere die Daten
         with open(SENDER_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            json.dump({"doctors": doctors}, f, ensure_ascii=False, indent=2)
 
         return jsonify({"status": "success", "message": "Absender-Daten gespeichert"}), 200
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Fehler beim Speichern der Absender-Daten: {e}")
         return jsonify({"error": "Fehler beim Speichern der Absender-Daten"}), 500
 
@@ -750,13 +710,10 @@ def generate_s0050_standalone():
 
     # Sender-Daten laden
     sender_data = {}
-    if SENDER_DATA_FILE.exists():
-        try:
-            with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
-                sender_data = json.load(f)
-        except Exception as e:
-            logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
-            return jsonify({"error": "Fehler beim Laden der Absender-Daten"}), 500
+    doctors = _load_sender_data()
+    if doctors:
+        # Verwende den ersten Arzt (Standard)
+        sender_data = doctors[0]
 
     # Absender-Daten befüllen
     if sender_data:
