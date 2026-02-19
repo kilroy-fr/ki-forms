@@ -489,7 +489,7 @@ def _load_sender_data():
         # Prüfen ob es ein Arzt-Objekt ist (hat mindestens eines der typischen Felder)
         if isinstance(data, dict) and any(key in data for key in ["anrede", "titel", "vorname", "name", "praxis"]):
             # Konvertiere zu neuem Format und speichere
-            new_data = {"doctors": [data]}
+            new_data = {"active_doctor_index": 0, "doctors": [data]}
             with open(SENDER_DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(new_data, f, ensure_ascii=False, indent=2)
             return [data]
@@ -499,6 +499,32 @@ def _load_sender_data():
     except Exception as e:
         logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
         return []
+
+
+def _get_active_doctor_index() -> int:
+    """Liest den Index des aktiven Arztes aus sender_data.json."""
+    if not SENDER_DATA_FILE.exists():
+        return 0
+    try:
+        with open(SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            idx = data.get("active_doctor_index", 0)
+            return int(idx) if isinstance(idx, (int, float)) else 0
+    except Exception:
+        pass
+    return 0
+
+
+def _get_active_sender_data() -> dict:
+    """Gibt den aktiven Arzt aus sender_data.json zurück."""
+    doctors = _load_sender_data()
+    if not doctors:
+        return {}
+    active_index = _get_active_doctor_index()
+    if 0 <= active_index < len(doctors):
+        return doctors[active_index]
+    return doctors[0]
 
 
 def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
@@ -514,12 +540,8 @@ def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
     s0050_fields = [f.model_copy() for f in S0050_DEFINITION.fields]
     s0050_fields_by_name = {f.field_name: f for f in s0050_fields}
 
-    # Sender-Daten laden
-    sender_data = {}
-    doctors = _load_sender_data()
-    if doctors:
-        # Verwende den ersten Arzt (Standard)
-        sender_data = doctors[0]
+    # Sender-Daten laden (aktiver Arzt)
+    sender_data = _get_active_sender_data()
 
     # Versicherungsnummer und Kennzeichen von S0051 übernehmen
     vsnr = s0051_fields.get("PAF_VSNR_trim")
@@ -648,10 +670,11 @@ def _generate_s0050_from_s0051(session_id: str, s0051_fields: dict):
 
 @forms_bp.route("/api/sender-data", methods=["GET"])
 def get_sender_data():
-    """Absender-Daten abrufen (Array von bis zu 5 Ärzten)."""
+    """Absender-Daten abrufen (Array von bis zu 5 Ärzten inkl. aktivem Index)."""
     try:
         doctors = _load_sender_data()
-        return jsonify({"doctors": doctors}), 200
+        active_index = _get_active_doctor_index()
+        return jsonify({"doctors": doctors, "active_doctor_index": active_index}), 200
     except Exception as e:
         logger.error(f"Fehler beim Laden der Absender-Daten: {e}")
         return jsonify({"error": "Fehler beim Laden der Absender-Daten"}), 500
@@ -659,7 +682,7 @@ def get_sender_data():
 
 @forms_bp.route("/api/sender-data", methods=["POST"])
 def save_sender_data():
-    """Absender-Daten speichern (Array von bis zu 5 Ärzten)."""
+    """Absender-Daten speichern (Array von bis zu 5 Ärzten + aktivem Index)."""
     try:
         data = request.get_json()
         if not data:
@@ -678,12 +701,17 @@ def save_sender_data():
         if len(doctors) > 5:
             return jsonify({"error": "Maximal 5 Ärzte erlaubt"}), 400
 
+        # Aktiven Arzt-Index übernehmen (oder bisherigen beibehalten)
+        active_index = data.get("active_doctor_index", _get_active_doctor_index())
+        if not isinstance(active_index, int) or active_index < 0 or active_index >= max(len(doctors), 1):
+            active_index = 0
+
         # Stelle sicher, dass das Verzeichnis existiert
         SENDER_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
 
         # Speichere die Daten
         with open(SENDER_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump({"doctors": doctors}, f, ensure_ascii=False, indent=2)
+            json.dump({"active_doctor_index": active_index, "doctors": doctors}, f, ensure_ascii=False, indent=2)
 
         return jsonify({"status": "success", "message": "Absender-Daten gespeichert"}), 200
     except Exception as e:
@@ -708,12 +736,8 @@ def generate_s0050_standalone():
     s0050_fields = [f.model_copy() for f in S0050_DEFINITION.fields]
     s0050_fields_by_name = {f.field_name: f for f in s0050_fields}
 
-    # Sender-Daten laden
-    sender_data = {}
-    doctors = _load_sender_data()
-    if doctors:
-        # Verwende den ersten Arzt (Standard)
-        sender_data = doctors[0]
+    # Sender-Daten laden (aktiver Arzt)
+    sender_data = _get_active_sender_data()
 
     # Absender-Daten befüllen
     if sender_data:

@@ -145,6 +145,9 @@
                 <h3 class="mb-0">Absender-Daten bearbeiten</h3>
                 <div class="sender-doctor-indicator" id="doctorIndicator">
                     <span id="currentDoctorIndex">1</span> von <span id="totalDoctors">5</span>
+                    <span class="active-doctor-badge d-none" id="activeDoctorBadge" title="Dieser Arzt wird in Formularen verwendet">
+                        <i class="bi bi-star-fill"></i> Aktiv
+                    </span>
                 </div>
             </div>
             <button class="sender-nav-btn sender-nav-next" id="nextDoctorBtn" aria-label="Nächster Arzt">
@@ -235,13 +238,18 @@
                 <input type="text" class="form-control" id="kreditinstitut" name="kreditinstitut">
 
                 <!-- Buttons -->
-                <div class="d-flex justify-content-end gap-2 mt-4">
-                    <button type="button" class="btn btn-outline-secondary" id="cancelSenderBtn">
-                        Abbrechen
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <button type="button" class="btn btn-outline-warning" id="setActiveDoctorBtn">
+                        <i class="bi bi-star"></i> Als aktiven Arzt festlegen
                     </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Speichern
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" id="cancelSenderBtn">
+                            Abbrechen
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Speichern
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
