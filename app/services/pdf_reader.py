@@ -1,16 +1,24 @@
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import pypdf
 import pytesseract
 from pdf2image import convert_from_path
+from PIL import Image, ImageEnhance
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 MIN_CHARS_PER_PAGE = 50
+
+# Tesseract-Konfiguration für optimale Erkennungsgenauigkeit:
+# --oem 3  → LSTM + Legacy Engine (beste Genauigkeit)
+# --psm 3  → Automatische Seitensegmentierung (gut für gemischte Layouts)
+# preserve_interword_spaces → Wortabstände beibehalten
+TESSERACT_CONFIG = "--oem 3 --psm 3 -c preserve_interword_spaces=1"
 
 
 @dataclass
@@ -20,6 +28,33 @@ class ExtractionInfo:
     page_count: int
     char_count: int
     is_ocr_fallback: bool
+
+
+def _preprocess_image(img: Image.Image) -> Image.Image:
+    """
+    Bildvorverarbeitung für bessere OCR-Erkennungsrate.
+    Optimiert für gescannte Dokumente mit möglichen Qualitätsproblemen.
+    """
+    # Zu Graustufen konvertieren – Farbe bringt keinen OCR-Vorteil
+    img = img.convert("L")
+    # Kontrast erhöhen – verbessert Lesbarkeit bei blassen oder ungleichmäßigen Scans
+    img = ImageEnhance.Contrast(img).enhance(1.8)
+    # Schärfe verbessern – hilft bei leicht unscharfen Scans
+    img = ImageEnhance.Sharpness(img).enhance(2.0)
+    return img
+
+
+def _postprocess_text(text: str) -> str:
+    """
+    Bereinigung häufiger OCR-Artefakte im erkannten Text.
+    """
+    # Mehrfache Leerzeichen auf eines reduzieren
+    text = re.sub(r" {2,}", " ", text)
+    # Überflüssige Leerzeichen am Zeilenende entfernen
+    text = re.sub(r" +\n", "\n", text)
+    # Mehr als 2 aufeinanderfolgende Leerzeilen auf 2 reduzieren
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def extract_text_from_pdf(file_path: Path) -> ExtractionInfo:
@@ -65,10 +100,18 @@ def extract_text_from_pdf(file_path: Path) -> ExtractionInfo:
 
 def _ocr_pdf(file_path: Path) -> str:
     """PDF-Seiten in Bilder konvertieren und per OCR verarbeiten."""
-    images = convert_from_path(str(file_path), dpi=300)
+    images = convert_from_path(str(file_path), dpi=settings.OCR_DPI)
     texts = []
     for i, img in enumerate(images):
-        text = pytesseract.image_to_string(img, lang=settings.OCR_LANGUAGE)
+        # Bildvorverarbeitung für bessere Erkennung
+        processed_img = _preprocess_image(img)
+        text = pytesseract.image_to_string(
+            processed_img,
+            lang=settings.OCR_LANGUAGE,
+            config=TESSERACT_CONFIG,
+        )
+        # OCR-Artefakte bereinigen
+        text = _postprocess_text(text)
         texts.append(f"--- Seite {i + 1} ---\n{text}")
         logger.info(f"OCR Seite {i + 1}/{len(images)}: {len(text)} Zeichen")
     return "\n\n".join(texts)

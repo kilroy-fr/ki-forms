@@ -38,7 +38,12 @@ class S0050FormHandler(BaseFormHandler):
         session_data: Optional[dict] = None
     ) -> List[FormField]:
         """
-        S0050 benoetigt keine spezielle Postprocessing-Logik,
-        da es meist programmatisch generiert wird.
+        Setzt AW_Verguetung_BB standardmaessig auf 'ja'.
         """
+        from app.models.form_schema import FieldStatus
+        fields_by_name = {f.field_name: f for f in fields}
+        aw_verg = fields_by_name.get("AW_Verguetung_BB")
+        if aw_verg and not aw_verg.value:
+            aw_verg.value = "ja"
+            aw_verg.status = FieldStatus.FILLED
         return fields

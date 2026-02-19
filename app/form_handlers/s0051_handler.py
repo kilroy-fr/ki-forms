@@ -278,23 +278,33 @@ class S0051FormHandler(BaseFormHandler):
             s0050_fields_by_name["PAT_Geburtsdatum"].value = pat_gebdat.value
             s0050_fields_by_name["PAT_Geburtsdatum"].status = FieldStatus.MANUAL
 
-        # Versicherte/r Daten (normalerweise identisch mit Patientin/Patient)
+        # Versicherte/r Daten - immer übernehmen (auch wenn identisch mit Patient)
         vers_name = s0051_fields.get("VERS_NAME")
         vers_gebdat = s0051_fields.get("VERS_GEBDAT")
 
-        if vers_name and vers_name.value and (not pat_name or vers_name.value != pat_name.value):
+        # VERS_NAME: direkt aus S0051 VERS_NAME, Fallback auf PAT_NAME
+        if vers_name and vers_name.value:
             s0050_fields_by_name["VERS_NAME"].value = vers_name.value
             s0050_fields_by_name["VERS_NAME"].status = FieldStatus.MANUAL
+        elif pat_name and pat_name.value:
+            s0050_fields_by_name["VERS_NAME"].value = pat_name.value
+            s0050_fields_by_name["VERS_NAME"].status = FieldStatus.MANUAL
 
-        if vers_gebdat and vers_gebdat.value and (not pat_gebdat or vers_gebdat.value != pat_gebdat.value):
+        # VERS_GEBDAT: aus S0051 VERS_GEBDAT, Fallback auf PAT_Geburtsdatum
+        if vers_gebdat and vers_gebdat.value:
             s0050_fields_by_name["VERS_GEBDAT"].value = vers_gebdat.value
+            s0050_fields_by_name["VERS_GEBDAT"].status = FieldStatus.MANUAL
+        elif pat_gebdat and pat_gebdat.value:
+            s0050_fields_by_name["VERS_GEBDAT"].value = pat_gebdat.value
             s0050_fields_by_name["VERS_GEBDAT"].status = FieldStatus.MANUAL
 
         # Absender-Daten befüllen
         if sender_data:
-            # IBAN
+            # IBAN: erste 2 Zeichen (Länderkennung "DE") entfernen
             if sender_data.get("iban"):
-                s0050_fields_by_name["KONTOINH_IBAN"].value = sender_data["iban"]
+                iban_raw = sender_data["iban"]
+                iban_value = iban_raw[2:] if len(iban_raw) > 2 else iban_raw
+                s0050_fields_by_name["KONTOINH_IBAN"].value = iban_value
                 s0050_fields_by_name["KONTOINH_IBAN"].status = FieldStatus.MANUAL
 
             # Geldinstitut
@@ -327,9 +337,10 @@ class S0051FormHandler(BaseFormHandler):
 
         # Aktuelles Datum
         current_date = datetime.now().strftime("%d.%m.%Y")
+        current_date_nodots = datetime.now().strftime("%d%m%Y")
 
-        # Rechnungsdatum
-        s0050_fields_by_name["RECHNUNG_VOM"].value = current_date
+        # Rechnungsdatum: ohne Punkte (Format TTMMJJJJ)
+        s0050_fields_by_name["RECHNUNG_VOM"].value = current_date_nodots
         s0050_fields_by_name["RECHNUNG_VOM"].status = FieldStatus.MANUAL
 
         # Ort, Datum (für ARZT_ORT): [aktuelles Datum] + Ort

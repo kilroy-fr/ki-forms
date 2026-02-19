@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.models.form_schema import FormField, FieldType, ExtractionResult
+from app.config import settings
 from app.services.ollama_client import chat_completion
 
 logger = logging.getLogger(__name__)
@@ -417,7 +418,8 @@ def _validate_diagnoses_icd10(
             )
 
             try:
-                response = chat_completion(SYSTEM_PROMPT, prompt)
+                # ICD-10-Prompt enthält 150 Codes + Diagnosetext → größerer Context nötig
+                response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=settings.OLLAMA_NUM_CTX_LARGE)
                 # Parse JSON-Antwort
                 cleaned = response.strip()
                 if cleaned.startswith("```"):
@@ -507,12 +509,15 @@ def extract_fields(
     small_text_fields = [f for f in text_fields if f.field_name not in LARGE_TEXT_FIELDS]
     large_text_fields = [f for f in text_fields if f.field_name in LARGE_TEXT_FIELDS]
 
+    # Größerer Context für Pässe mit vollem Quelltext (passt noch vollständig in VRAM)
+    large_ctx = settings.OLLAMA_NUM_CTX_LARGE
+
     # --- Pass 1: Kleine Textfelder (schnelle Extraktion) ---
     if small_text_fields:
-        logger.info(f"Pass 1: Extrahiere {len(small_text_fields)} kleine Textfelder...")
+        logger.info(f"Pass 1: Extrahiere {len(small_text_fields)} kleine Textfelder (num_ctx={large_ctx})...")
         prompt = _build_text_fields_prompt(small_text_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 1: {len(results)} kleine Textfelder extrahiert")
@@ -521,10 +526,10 @@ def extract_fields(
 
     # --- Pass 2: Große Textfelder (narrative Abschnitte) ---
     if large_text_fields:
-        logger.info(f"Pass 2: Extrahiere {len(large_text_fields)} große Textfelder...")
+        logger.info(f"Pass 2: Extrahiere {len(large_text_fields)} große Textfelder (num_ctx={large_ctx})...")
         prompt = _build_large_text_fields_prompt(large_text_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 2: {len(results)} große Textfelder extrahiert")
@@ -534,10 +539,10 @@ def extract_fields(
     # --- Pass 3: Checkboxen ---
     checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX and f.extract_from_ai]
     if checkbox_fields:
-        logger.info(f"Pass 3: Extrahiere {len(checkbox_fields)} Checkboxen...")
+        logger.info(f"Pass 3: Extrahiere {len(checkbox_fields)} Checkboxen (num_ctx={large_ctx})...")
         prompt = _build_checkbox_prompt(checkbox_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
             results = _parse_response(response, "checkboxes")
             all_results.extend(results)
             logger.info(f"Pass 3: {len(results)} Checkboxen extrahiert")
@@ -550,11 +555,11 @@ def extract_fields(
 
     if unfilled_small_text and len(unfilled_small_text) < len(small_text_fields):
         logger.info(
-            f"Pass 4: Versuche {len(unfilled_small_text)} nicht gefundene kleine Felder erneut..."
+            f"Pass 4: Versuche {len(unfilled_small_text)} nicht gefundene kleine Felder erneut (num_ctx={large_ctx})..."
         )
         prompt = _build_retry_prompt(unfilled_small_text, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 4: {len(results)} zusaetzliche Felder extrahiert")
@@ -584,8 +589,42 @@ def extract_fields(
     return all_results
 
 
+def _strip_json_comments(json_str: str) -> str:
+    """Entfernt // und /* */ Kommentare aus JSON-ähnlichem Text (zeichengenau, string-sicher)."""
+    result = []
+    i = 0
+    in_string = False
+    while i < len(json_str):
+        char = json_str[i]
+        # Toggle string-Modus bei nicht-escaptem Anführungszeichen
+        if char == '"' and (i == 0 or json_str[i - 1] != '\\'):
+            in_string = not in_string
+        if not in_string and char == '/' and i + 1 < len(json_str):
+            next_char = json_str[i + 1]
+            # // Zeilenkommentar: bis Zeilenende überspringen
+            if next_char == '/':
+                while i < len(json_str) and json_str[i] != '\n':
+                    i += 1
+                continue
+            # /* */ Block-Kommentar: bis */ überspringen
+            if next_char == '*':
+                i += 2
+                while i < len(json_str) - 1:
+                    if json_str[i] == '*' and json_str[i + 1] == '/':
+                        i += 2
+                        break
+                    i += 1
+                continue
+        result.append(char)
+        i += 1
+    return ''.join(result)
+
+
 def _repair_json(json_str: str) -> str:
     """Versucht, häufige JSON-Fehler zu reparieren."""
+    # Entferne // Kommentare (Modell fügt diese manchmal ein)
+    json_str = _strip_json_comments(json_str)
+
     # Entferne trailing commas vor ] oder }
     json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
 
