@@ -14,11 +14,14 @@ const prevDoctorBtn = document.getElementById('prevDoctorBtn');
 const nextDoctorBtn = document.getElementById('nextDoctorBtn');
 const currentDoctorIndexEl = document.getElementById('currentDoctorIndex');
 const totalDoctorsEl = document.getElementById('totalDoctors');
+const activeDoctorBadge = document.getElementById('activeDoctorBadge');
+const setActiveDoctorBtn = document.getElementById('setActiveDoctorBtn');
 
 // Globale Variablen
 const MAX_DOCTORS = 5;
 let doctors = []; // Array von bis zu 5 Ärzten
-let currentDoctorIndex = 0; // Aktueller Arzt (0-4)
+let currentDoctorIndex = 0; // Aktuell angezeigter Arzt im Modal (0-4)
+let activeDoctorIndex = 0;  // Index des Arztes, der in Formularen verwendet wird
 
 /**
  * Initialisiert leere Ärzte-Slots
@@ -89,6 +92,9 @@ async function loadDoctors() {
         }
 
         const data = await response.json();
+
+        // Aktiven Arzt-Index laden
+        activeDoctorIndex = typeof data.active_doctor_index === 'number' ? data.active_doctor_index : 0;
 
         // Initialisiere mit leeren Ärzten
         doctors = initializeEmptyDoctors();
@@ -201,7 +207,7 @@ function switchDoctor(newIndex) {
 }
 
 /**
- * Aktualisiert die Navigation-Buttons und Anzeige
+ * Aktualisiert die Navigation-Buttons, Anzeige und Aktiv-Indikator
  */
 function updateNavigation() {
     // Aktualisiere Anzeige
@@ -213,6 +219,38 @@ function updateNavigation() {
 
     // Next-Button aktivieren/deaktivieren
     nextDoctorBtn.disabled = currentDoctorIndex === MAX_DOCTORS - 1;
+
+    // Aktiv-Badge und Button aktualisieren
+    const isActive = currentDoctorIndex === activeDoctorIndex;
+    if (isActive) {
+        activeDoctorBadge.classList.remove('d-none');
+        setActiveDoctorBtn.disabled = true;
+        setActiveDoctorBtn.innerHTML = '<i class="bi bi-star-fill"></i> Aktiver Arzt';
+    } else {
+        activeDoctorBadge.classList.add('d-none');
+        setActiveDoctorBtn.disabled = false;
+        setActiveDoctorBtn.innerHTML = '<i class="bi bi-star"></i> Als aktiven Arzt festlegen';
+    }
+}
+
+/**
+ * Setzt den aktuell angezeigten Arzt als aktiven Arzt
+ */
+async function setActiveDoctorHandler() {
+    // Aktuellen Arzt zuerst im Array speichern
+    saveCurrentDoctorToArray();
+
+    // Aktiven Index setzen
+    activeDoctorIndex = currentDoctorIndex;
+
+    // Sofort speichern
+    try {
+        await saveDoctors();
+        updateNavigation();
+        console.log(`Arzt ${activeDoctorIndex + 1} als aktiver Arzt gesetzt`);
+    } catch (error) {
+        console.error('Fehler beim Setzen des aktiven Arztes:', error);
+    }
 }
 
 /**
@@ -245,7 +283,7 @@ async function saveDoctors() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ doctors: nonEmptyDoctors }),
+            body: JSON.stringify({ doctors: nonEmptyDoctors, active_doctor_index: activeDoctorIndex }),
         });
 
         if (!response.ok) {
@@ -261,8 +299,8 @@ async function saveDoctors() {
 }
 
 /**
- * Lädt die Absender-Daten vom Backend (Legacy für Kompatibilität)
- * Gibt den ersten Arzt zurück
+ * Lädt die Absender-Daten vom Backend.
+ * Gibt den aktiven Arzt zurück.
  */
 async function getSenderData() {
     try {
@@ -279,9 +317,10 @@ async function getSenderData() {
 
         const data = await response.json();
 
-        // Neues Format: {"doctors": [...]}
         if (data.doctors && Array.isArray(data.doctors) && data.doctors.length > 0) {
-            return data.doctors[0];
+            // Aktiven Arzt zurückgeben
+            const idx = typeof data.active_doctor_index === 'number' ? data.active_doctor_index : 0;
+            return data.doctors[idx] || data.doctors[0];
         }
 
         return null;
@@ -292,7 +331,7 @@ async function getSenderData() {
 }
 
 /**
- * Zeigt die gespeicherten Absender-Daten an
+ * Zeigt die gespeicherten Absender-Daten an (aktiver Arzt)
  */
 async function displaySenderData() {
     const data = await getSenderData();
@@ -307,7 +346,7 @@ async function displaySenderData() {
         return;
     }
 
-    // Erstelle HTML für die Anzeige (zeigt nur den ersten/Standard-Arzt)
+    // Erstelle HTML für die Anzeige (zeigt den aktiven Arzt)
     let html = '<div class="sender-data-content">';
 
     // Persönliche Daten
@@ -393,7 +432,6 @@ async function handleFormSubmit(e) {
         // Schließe das Modal
         closeSenderModalHandler();
 
-        // Zeige Erfolgsbenachrichtigung (optional)
         console.log('Absender-Daten gespeichert');
     } catch (error) {
         // Fehlerbehandlung bereits in saveDoctors
@@ -406,6 +444,7 @@ editSenderBtn.addEventListener('click', openSenderModal);
 closeSenderModal.addEventListener('click', closeSenderModalHandler);
 cancelSenderBtn.addEventListener('click', closeSenderModalHandler);
 senderDataForm.addEventListener('submit', handleFormSubmit);
+setActiveDoctorBtn.addEventListener('click', setActiveDoctorHandler);
 
 // Navigation-Event-Listeners
 prevDoctorBtn.addEventListener('click', () => {
@@ -469,6 +508,6 @@ window.addEventListener('resize', () => {
 /**
  * Exportiere Funktion zum Abrufen der Absender-Daten für andere Module
  * (z.B. für das Ausfüllen von Formularen)
- * Gibt ein Promise zurück, das die Absender-Daten enthält
+ * Gibt ein Promise zurück, das den aktiven Arzt enthält
  */
 window.getSenderDataForForms = getSenderData;

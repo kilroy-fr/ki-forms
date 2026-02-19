@@ -125,7 +125,7 @@ class S0051FormHandler(BaseFormHandler):
                 key in data for key in ["anrede", "titel", "vorname", "name", "praxis"]
             ):
                 # Konvertiere zu neuem Format und speichere
-                new_data = {"doctors": [data]}
+                new_data = {"active_doctor_index": 0, "doctors": [data]}
                 with open(self.SENDER_DATA_FILE, "w", encoding="utf-8") as f:
                     json.dump(new_data, f, ensure_ascii=False, indent=2)
                 return [data]
@@ -135,6 +135,30 @@ class S0051FormHandler(BaseFormHandler):
             logger.warning(f"Fehler beim Laden der Sender-Daten: {e}")
             return []
 
+    def _get_active_doctor_index(self) -> int:
+        """Liest den Index des aktiven Arztes aus sender_data.json."""
+        if not self.SENDER_DATA_FILE.exists():
+            return 0
+        try:
+            with open(self.SENDER_DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                idx = data.get("active_doctor_index", 0)
+                return int(idx) if isinstance(idx, (int, float)) else 0
+        except Exception:
+            pass
+        return 0
+
+    def _get_active_sender_data(self) -> dict:
+        """Gibt den aktiven Arzt zurück."""
+        doctors = self._load_sender_data()
+        if not doctors:
+            return {}
+        active_index = self._get_active_doctor_index()
+        if 0 <= active_index < len(doctors):
+            return doctors[active_index]
+        return doctors[0]
+
     def _fill_sender_data(self, fields_by_name: Dict[str, FormField]) -> None:
         """
         Befuellt Behandlungsfelder mit Sender-Daten.
@@ -142,13 +166,11 @@ class S0051FormHandler(BaseFormHandler):
         Args:
             fields_by_name: Dictionary mit field_name als Key
         """
-        doctors = self._load_sender_data()
-        if not doctors:
+        sender_data = self._get_active_sender_data()
+        if not sender_data:
             return
 
         try:
-            # Verwende den ersten Arzt (Standard)
-            sender_data = doctors[0]
 
             # Name der Ärztin/des Arztes zusammensetzen: Titel + Vorname + Name
             arzt_name_parts = []
@@ -234,11 +256,8 @@ class S0051FormHandler(BaseFormHandler):
         s0050_fields = [f.model_copy() for f in S0050_DEFINITION.fields]
         s0050_fields_by_name = {f.field_name: f for f in s0050_fields}
 
-        # Sender-Daten laden
-        sender_data = {}
-        doctors = self._load_sender_data()
-        if doctors:
-            sender_data = doctors[0]
+        # Sender-Daten laden (aktiver Arzt)
+        sender_data = self._get_active_sender_data()
 
         # Versicherungsnummer und Kennzeichen von S0051 übernehmen
         vsnr = s0051_fields.get("PAF_VSNR_trim")
