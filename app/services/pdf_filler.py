@@ -1091,7 +1091,8 @@ def _burn_in_problematic_button_marks(pdf: pikepdf.Pdf) -> None:
     target_radio_groups = {
         "AW_1", "AW_2", "AW_3", "AW_14", "AW_20", "AW_21", "AW_23", "AW_24", "AW_25", "AW_26"
     }
-    target_checkboxes = {"AW_13", "AW_15", "AW_16", "AW_17", "AW_18", "AW_19", "AW_24_1"}
+    target_checkboxes = {"AW_13", "AW_15", "AW_16", "AW_17", "AW_18", "AW_19", "AW_24_1",
+                         "AW_Verguetung_BB", "AW_ZusBogen_onkol"}
 
     marked = 0
     for field_ref in acroform["/Fields"]:

@@ -114,6 +114,7 @@ MAX_UPLOAD_FILES=10
 
 # OCR
 OCR_LANGUAGE=deu
+OCR_DPI=300
 ```
 
 ## Workflow

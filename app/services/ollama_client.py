@@ -68,18 +68,62 @@ def warmup_model(model_name: str) -> None:
         _warmed_up_models.add(model_name)
 
 
+def get_gpu_layer_ratio() -> str:
+    """
+    Gibt das VRAM-zu-Gesamt-Verhältnis des geladenen Modells zurück (Diagnosezwecke).
+    Zeigt an, wie viel des Modells auf GPU vs. CPU liegt.
+    """
+    try:
+        resp = requests.get(f"{settings.OLLAMA_BASE_URL}/api/ps", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        models = data.get("models", [])
+        for m in models:
+            if settings.OLLAMA_MODEL in m.get("name", ""):
+                size_total = m.get("size", 0)
+                size_vram = m.get("size_vram", 0)
+                if size_total > 0:
+                    pct = size_vram / size_total * 100
+                    total_gb = size_total / 1024**3
+                    vram_gb = size_vram / 1024**3
+                    cpu_gb = (size_total - size_vram) / 1024**3
+                    return (
+                        f"{pct:.0f}% auf GPU ({vram_gb:.1f} GB VRAM, "
+                        f"{cpu_gb:.1f} GB CPU) von {total_gb:.1f} GB gesamt"
+                    )
+        return "Modell nicht geladen"
+    except Exception as e:
+        return f"Unbekannt ({e})"
+
+
 def chat_completion(
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.1,
+    num_ctx: int | None = None,
 ) -> str:
     """
     Chat-Completion-Anfrage an Ollama senden.
     Nutzt Streaming um lange Antworten und Timeouts zu handhaben.
     Führt automatisch ein Warmup durch, falls das Modell nicht geladen ist.
+
+    num_ctx: Context-Fenstergröße (None = settings.OLLAMA_NUM_CTX).
+             Für Pässe mit vollem Quelltext settings.OLLAMA_NUM_CTX_LARGE übergeben.
     """
     # Warmup durchführen, falls Modell nicht im Speicher
     warmup_model(settings.OLLAMA_MODEL)
+
+    effective_ctx = num_ctx if num_ctx is not None else settings.OLLAMA_NUM_CTX
+
+    # GPU-Nutzung loggen
+    gpu_info = get_gpu_layer_ratio()
+    if "CPU" in gpu_info and "0.0 GB CPU" not in gpu_info:
+        logger.warning(
+            f"Modell läuft teilweise auf CPU! {gpu_info} – "
+            f"num_ctx={effective_ctx} (ggf. OLLAMA_NUM_CTX_LARGE reduzieren)"
+        )
+    else:
+        logger.debug(f"GPU-Nutzung: {gpu_info}, num_ctx={effective_ctx}")
 
     payload = {
         "model": settings.OLLAMA_MODEL,
@@ -90,8 +134,9 @@ def chat_completion(
         "stream": True,
         "options": {
             "temperature": temperature,
-            "num_predict": 16384,  # Explizit hoher Wert für längere Antworten
-            "num_ctx": 32768,      # Größeres Context-Fenster für längere Antworten
+            "num_predict": 4096,   # Strukturierte JSON-Antworten brauchen selten mehr
+            "num_ctx": effective_ctx,
+            "num_gpu": -1,         # Alle Layer auf GPU erzwingen (kein CPU-Offloading)
         },
     }
 
