@@ -136,4 +136,4 @@ Alle Einstellungen über Umgebungsvariablen (siehe [.env.example](.env.example))
 
 ## Lizenz
 
-Dieses Projekt steht unter keiner expliziten Lizenz. Alle Rechte vorbehalten.
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
