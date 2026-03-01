@@ -1,0 +1,24 @@
+{
+  "active_doctor_index": 0,
+  "doctors": [
+    {
+      "anrede": "Herr",
+      "titel": "Dr.",
+      "vorname": "Max",
+      "name": "Mustermann",
+      "fachrichtung": "Allgemeinmedizin",
+      "praxis": "Musterpraxis",
+      "institutionskennzeichen": "",
+      "strasse": "Musterstraße",
+      "hausnummer": "1",
+      "plz": "12345",
+      "ort": "Musterstadt",
+      "telefon": "0123456789",
+      "email": "praxis@beispiel.de",
+      "kontoinhaber": "Max Mustermann",
+      "iban": "",
+      "bic": "",
+      "kreditinstitut": ""
+    }
+  ]
+}

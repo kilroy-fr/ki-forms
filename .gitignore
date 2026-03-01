@@ -50,3 +50,16 @@ data/*.sqlite
 
 # Logs
 *.log
+
+# Sensible Daten
+data/sender_data.json
+
+# Uploads & Output
+uploads/
+output/
+
+# Virtual Environment
+.venv/
+
+# Test-PDFs (persönliche Daten)
+data/S*_test*.pdf
