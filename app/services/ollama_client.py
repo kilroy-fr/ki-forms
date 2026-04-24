@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 import requests
 
@@ -9,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 # Cache für Warmup-Status pro Modell
 _warmed_up_models = set()
+# Cache für bereits geloggte GPU-Warnungen (vermeidet Spam)
+_gpu_warning_logged = set()
 
 
 def is_model_loaded(model_name: str) -> bool:
@@ -27,10 +30,82 @@ def is_model_loaded(model_name: str) -> bool:
         return False
 
 
+def unload_model(model_name: str) -> None:
+    """
+    Entlädt ein Modell aus dem Speicher (VRAM/RAM freigeben).
+    Verwendet keep_alive=0, damit Ollama das Modell sofort freigibt.
+    """
+    if not is_model_loaded(model_name):
+        return
+
+    logger.info(f"Entlade Modell {model_name} aus dem Speicher...")
+    try:
+        payload = {
+            "model": model_name,
+            "keep_alive": 0,
+        }
+        resp = requests.post(
+            f"{settings.OLLAMA_BASE_URL}/api/generate",
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        _warmed_up_models.discard(model_name)
+        _gpu_warning_logged.discard(model_name)
+        logger.info(f"Modell {model_name} entladen")
+    except Exception as e:
+        logger.error(f"Fehler beim Entladen von {model_name}: {e}")
+
+
+def unload_all_models() -> None:
+    """
+    Entlädt ALLE geladenen Modelle aus dem Speicher (VRAM/RAM komplett freigeben).
+    Wird vor einer neuen Analyse aufgerufen, um sicherzustellen, dass der VRAM
+    nicht durch alte Modell-Instanzen belegt ist.
+    Wartet bis Ollama die Modelle tatsächlich entladen hat (max. 10 Sekunden).
+    """
+    global _warmed_up_models, _gpu_warning_logged
+
+    try:
+        resp = requests.get(f"{settings.OLLAMA_BASE_URL}/api/ps", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        models = data.get("models", [])
+        if not models:
+            logger.debug("Keine Modelle im Speicher geladen")
+            return
+        logger.info(f"Entlade {len(models)} Modell(e) aus dem Speicher vor neuer Analyse...")
+        for m in models:
+            name = m.get("name", "")
+            if name:
+                unload_model(name)
+
+        # Warten bis Ollama die Modelle tatsächlich freigegeben hat
+        for attempt in range(10):
+            time.sleep(1)
+            resp = requests.get(f"{settings.OLLAMA_BASE_URL}/api/ps", timeout=5)
+            resp.raise_for_status()
+            remaining = resp.json().get("models", [])
+            if not remaining:
+                logger.info(f"VRAM vollständig freigegeben (nach {attempt + 1}s)")
+                break
+            logger.debug(f"Warte auf VRAM-Freigabe... ({len(remaining)} Modell(e) noch geladen)")
+        else:
+            logger.warning("VRAM-Freigabe nach 10s nicht abgeschlossen, fahre trotzdem fort")
+
+    except Exception as e:
+        logger.warning(f"Konnte geladene Modelle nicht entladen: {e}")
+
+    # Warmup-Cache komplett zurücksetzen, damit das Modell frisch geladen wird
+    _warmed_up_models.clear()
+    _gpu_warning_logged.clear()
+
+
 def warmup_model(model_name: str) -> None:
     """
     Führt ein Warmup für das Modell durch, indem eine minimale Anfrage gesendet wird.
     Dies lädt das Modell in den Speicher.
+    Entlädt vorher andere Modelle, um VRAM freizugeben.
     """
     if model_name in _warmed_up_models:
         logger.debug(f"Modell {model_name} wurde bereits aufgewärmt")
@@ -40,6 +115,18 @@ def warmup_model(model_name: str) -> None:
         logger.info(f"Modell {model_name} ist bereits im Speicher geladen")
         _warmed_up_models.add(model_name)
         return
+
+    # Andere Modelle entladen, um VRAM freizugeben
+    try:
+        resp = requests.get(f"{settings.OLLAMA_BASE_URL}/api/ps", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        for m in data.get("models", []):
+            loaded_name = m.get("name", "")
+            if loaded_name and model_name not in loaded_name:
+                unload_model(loaded_name)
+    except Exception as e:
+        logger.warning(f"Konnte geladene Modelle nicht prüfen: {e}")
 
     logger.info(f"Starte Warmup für Modell {model_name}...")
     try:
@@ -68,18 +155,19 @@ def warmup_model(model_name: str) -> None:
         _warmed_up_models.add(model_name)
 
 
-def get_gpu_layer_ratio() -> str:
+def get_gpu_layer_ratio(model_name: str | None = None) -> str:
     """
     Gibt das VRAM-zu-Gesamt-Verhältnis des geladenen Modells zurück (Diagnosezwecke).
     Zeigt an, wie viel des Modells auf GPU vs. CPU liegt.
     """
+    target = model_name or settings.OLLAMA_MODEL
     try:
         resp = requests.get(f"{settings.OLLAMA_BASE_URL}/api/ps", timeout=5)
         resp.raise_for_status()
         data = resp.json()
         models = data.get("models", [])
         for m in models:
-            if settings.OLLAMA_MODEL in m.get("name", ""):
+            if target in m.get("name", ""):
                 size_total = m.get("size", 0)
                 size_vram = m.get("size_vram", 0)
                 if size_total > 0:
@@ -101,6 +189,8 @@ def chat_completion(
     user_prompt: str,
     temperature: float = 0.1,
     num_ctx: int | None = None,
+    model: str | None = None,
+    num_predict: int = 4096,
 ) -> str:
     """
     Chat-Completion-Anfrage an Ollama senden.
@@ -109,24 +199,30 @@ def chat_completion(
 
     num_ctx: Context-Fenstergröße (None = settings.OLLAMA_NUM_CTX).
              Für Pässe mit vollem Quelltext settings.OLLAMA_NUM_CTX_LARGE übergeben.
+    model: Modellname (None = settings.OLLAMA_MODEL).
+    num_predict: Maximale Anzahl generierter Tokens (Standard: 4096).
     """
+    effective_model = model if model is not None else settings.OLLAMA_MODEL
+
     # Warmup durchführen, falls Modell nicht im Speicher
-    warmup_model(settings.OLLAMA_MODEL)
+    warmup_model(effective_model)
 
     effective_ctx = num_ctx if num_ctx is not None else settings.OLLAMA_NUM_CTX
 
-    # GPU-Nutzung loggen
-    gpu_info = get_gpu_layer_ratio()
+    # GPU-Nutzung loggen (Warnung nur einmal pro Modell)
+    gpu_info = get_gpu_layer_ratio(effective_model)
     if "CPU" in gpu_info and "0.0 GB CPU" not in gpu_info:
-        logger.warning(
-            f"Modell läuft teilweise auf CPU! {gpu_info} – "
-            f"num_ctx={effective_ctx} (ggf. OLLAMA_NUM_CTX_LARGE reduzieren)"
-        )
+        if effective_model not in _gpu_warning_logged:
+            logger.warning(
+                f"Modell {effective_model} läuft teilweise auf CPU! {gpu_info} – "
+                f"num_ctx={effective_ctx} (ggf. OLLAMA_NUM_CTX_LARGE reduzieren)"
+            )
+            _gpu_warning_logged.add(effective_model)
     else:
-        logger.debug(f"GPU-Nutzung: {gpu_info}, num_ctx={effective_ctx}")
+        logger.debug(f"GPU-Nutzung: {gpu_info}, model={effective_model}, num_ctx={effective_ctx}")
 
     payload = {
-        "model": settings.OLLAMA_MODEL,
+        "model": effective_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -134,7 +230,7 @@ def chat_completion(
         "stream": True,
         "options": {
             "temperature": temperature,
-            "num_predict": 4096,   # Strukturierte JSON-Antworten brauchen selten mehr
+            "num_predict": num_predict,
             "num_ctx": effective_ctx,
             "num_gpu": -1,         # Alle Layer auf GPU erzwingen (kein CPU-Offloading)
         },

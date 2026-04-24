@@ -8,7 +8,7 @@ load_dotenv()
 
 class Settings:
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
     OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "300"))
     UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
     OUTPUT_DIR: Path = Path(os.getenv("OUTPUT_DIR", "/app/output"))
@@ -23,6 +23,10 @@ class Settings:
     # Context-Fenstergröße für Pässe mit vollem Quelltext (Pass 1-4): passt noch vollständig in VRAM
     # Benchmark: 8192→10.1 GB VRAM (100%), 16384≈11.2 GB VRAM (100%), 32768→17.2 GB (64%, CPU-Overflow)
     OLLAMA_NUM_CTX_LARGE: int = int(os.getenv("OLLAMA_NUM_CTX_LARGE", "12288"))
+    # Kleineres Modell für große Quelltexte (passt vollständig in VRAM → 100% GPU)
+    OLLAMA_MODEL_SMALL: str = os.getenv("OLLAMA_MODEL_SMALL", "qwen2.5:7b")
+    # Schwellenwert in Zeichen: ab dieser OCR-Textlänge wird das kleinere Modell verwendet
+    LARGE_TEXT_THRESHOLD: int = int(os.getenv("LARGE_TEXT_THRESHOLD", "15000"))
 
 
 settings = Settings()

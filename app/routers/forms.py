@@ -445,23 +445,8 @@ def download_file(form_id, session_id):
 
 @forms_bp.route("/api/warmup", methods=["POST"])
 def warmup_ollama():
-    """API-Endpoint zum Aufwärmen des Ollama-Modells."""
-    from app.services import ollama_client
-    import threading
-
-    def do_warmup():
-        try:
-            ollama_client.warmup_model(settings.OLLAMA_MODEL)
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Warmup fehlgeschlagen: {e}")
-
-    # Warmup in separatem Thread ausführen, um Request nicht zu blockieren
-    thread = threading.Thread(target=do_warmup, daemon=True)
-    thread.start()
-
-    return {"status": "warmup_started"}, 202
+    """API-Endpoint zum Aufwärmen – deaktiviert, da Modellwahl erst bei Verarbeitung feststeht."""
+    return {"status": "skipped"}, 202
 
 
 # Pfad zur Absender-Daten-Datei

@@ -7,7 +7,7 @@
 ### Hauptfunktionen
 - Upload von PDF-Dokumenten
 - OCR-basierte Textextraktion mit Tesseract
-- KI-gestützte Feldextraktion mittels Ollama (Qwen2.5:14b)
+- KI-gestützte Feldextraktion mittels Ollama (gemma4:e4b)
 - Automatisches Ausfüllen von PDF-Formularen
 - Session-basierter Workflow mit Review-Möglichkeit
 - Download ausgefüllter Formulare
@@ -99,7 +99,7 @@ Konfiguration über `.env` oder Umgebungsvariablen:
 ```bash
 # Ollama Configuration
 OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_MODEL=qwen2.5:14b
+OLLAMA_MODEL=gemma4:e4b
 OLLAMA_TIMEOUT=300
 MAX_OLLAMA_PASSES=3
 
@@ -388,7 +388,7 @@ curl http://localhost:8000/
 - 50+ GB Speicherplatz (für Uploads/Outputs)
 
 **Externe Dependencies**:
-- Ollama-Server mit Qwen2.5:14b Modell (ca. 8 GB VRAM)
+- Ollama-Server mit gemma4:e4b Modell
 - Reverse-Proxy (Caddy empfohlen)
 
 ## API-Dokumentation
@@ -565,7 +565,7 @@ docker network inspect ollama-net
 docker exec -it <ollama-container> ollama list
 
 # Modell laden
-docker exec -it <ollama-container> ollama pull qwen2.5:14b
+docker exec -it <ollama-container> ollama pull gemma4:e4b
 
 # OLLAMA_BASE_URL korrekt?
 echo $OLLAMA_BASE_URL

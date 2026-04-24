@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.models.form_schema import FormField, FieldType, ExtractionResult
 from app.config import settings
-from app.services.ollama_client import chat_completion
+from app.services.ollama_client import chat_completion, unload_all_models
 
 logger = logging.getLogger(__name__)
 
@@ -360,6 +360,7 @@ Gib NUR Felder an, fuer die du tatsaechlich einen Wert im Text gefunden hast."""
 
 def _validate_diagnoses_icd10(
     all_results: list[ExtractionResult],
+    model: str | None = None,
 ) -> list[ExtractionResult]:
     """
     Pass 4: ICD-10-Validierung für Diagnosen 1-10.
@@ -419,7 +420,7 @@ def _validate_diagnoses_icd10(
 
             try:
                 # ICD-10-Prompt enthält 150 Codes + Diagnosetext → größerer Context nötig
-                response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=settings.OLLAMA_NUM_CTX_LARGE)
+                response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=settings.OLLAMA_NUM_CTX_LARGE, model=model)
                 # Parse JSON-Antwort
                 cleaned = response.strip()
                 if cleaned.startswith("```"):
@@ -504,6 +505,9 @@ def extract_fields(
     """
     all_results: list[ExtractionResult] = []
 
+    # VRAM komplett freigeben, bevor neues Modell geladen wird
+    unload_all_models()
+
     # Textfelder aufteilen: kleine vs. große
     text_fields = [f for f in fields if f.field_type == FieldType.TEXT and f.extract_from_ai]
     small_text_fields = [f for f in text_fields if f.field_name not in LARGE_TEXT_FIELDS]
@@ -512,12 +516,24 @@ def extract_fields(
     # Größerer Context für Pässe mit vollem Quelltext (passt noch vollständig in VRAM)
     large_ctx = settings.OLLAMA_NUM_CTX_LARGE
 
+    # Bei großen Quelltexten kleineres Modell verwenden (passt vollständig in VRAM → 100% GPU)
+    text_len = len(source_text)
+    if text_len >= settings.LARGE_TEXT_THRESHOLD:
+        model = settings.OLLAMA_MODEL_SMALL
+        logger.info(
+            f"Großer Quelltext ({text_len} Zeichen >= {settings.LARGE_TEXT_THRESHOLD}): "
+            f"verwende kleineres Modell {model}"
+        )
+    else:
+        model = None  # Standard-Modell aus Settings
+        logger.info(f"Quelltext ({text_len} Zeichen): verwende Standard-Modell {settings.OLLAMA_MODEL}")
+
     # --- Pass 1: Kleine Textfelder (schnelle Extraktion) ---
     if small_text_fields:
-        logger.info(f"Pass 1: Extrahiere {len(small_text_fields)} kleine Textfelder (num_ctx={large_ctx})...")
+        logger.info(f"Pass 1: Extrahiere {len(small_text_fields)} kleine Textfelder (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})...")
         prompt = _build_text_fields_prompt(small_text_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 1: {len(results)} kleine Textfelder extrahiert")
@@ -526,10 +542,10 @@ def extract_fields(
 
     # --- Pass 2: Große Textfelder (narrative Abschnitte) ---
     if large_text_fields:
-        logger.info(f"Pass 2: Extrahiere {len(large_text_fields)} große Textfelder (num_ctx={large_ctx})...")
+        logger.info(f"Pass 2: Extrahiere {len(large_text_fields)} große Textfelder (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})...")
         prompt = _build_large_text_fields_prompt(large_text_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model, num_predict=8192)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 2: {len(results)} große Textfelder extrahiert")
@@ -539,10 +555,10 @@ def extract_fields(
     # --- Pass 3: Checkboxen ---
     checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX and f.extract_from_ai]
     if checkbox_fields:
-        logger.info(f"Pass 3: Extrahiere {len(checkbox_fields)} Checkboxen (num_ctx={large_ctx})...")
+        logger.info(f"Pass 3: Extrahiere {len(checkbox_fields)} Checkboxen (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})...")
         prompt = _build_checkbox_prompt(checkbox_fields, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model)
             results = _parse_response(response, "checkboxes")
             all_results.extend(results)
             logger.info(f"Pass 3: {len(results)} Checkboxen extrahiert")
@@ -555,11 +571,11 @@ def extract_fields(
 
     if unfilled_small_text and len(unfilled_small_text) < len(small_text_fields):
         logger.info(
-            f"Pass 4: Versuche {len(unfilled_small_text)} nicht gefundene kleine Felder erneut (num_ctx={large_ctx})..."
+            f"Pass 4: Versuche {len(unfilled_small_text)} nicht gefundene kleine Felder erneut (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})..."
         )
         prompt = _build_retry_prompt(unfilled_small_text, source_text)
         try:
-            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx)
+            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model)
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 4: {len(results)} zusaetzliche Felder extrahiert")
@@ -569,7 +585,7 @@ def extract_fields(
     # --- Pass 5: ICD-10-Validierung für Diagnosen ---
     logger.info("Pass 5: ICD-10-Validierung für Diagnosen 1-10...")
     try:
-        icd10_results = _validate_diagnoses_icd10(all_results)
+        icd10_results = _validate_diagnoses_icd10(all_results, model=model)
         if icd10_results:
             # Entferne alte ICD-10-Einträge für die validierten Diagnosen
             validated_fields = {r.field_name for r in icd10_results}
@@ -620,10 +636,37 @@ def _strip_json_comments(json_str: str) -> str:
     return ''.join(result)
 
 
+def _fix_invalid_escapes(json_str: str) -> str:
+    """Repariert ungültige Escape-Sequenzen in JSON-Strings (z.B. \\1 → 1)."""
+    # Innerhalb von JSON-Strings: ersetze \X durch X, wenn X kein gültiges Escape-Zeichen ist
+    # Gültige JSON-Escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+    valid_escapes = set('"\\\\/bfnrtu')
+
+    result = []
+    i = 0
+    in_string = False
+    while i < len(json_str):
+        char = json_str[i]
+        if char == '"' and (i == 0 or json_str[i - 1] != '\\'):
+            in_string = not in_string
+        if in_string and char == '\\' and i + 1 < len(json_str):
+            next_char = json_str[i + 1]
+            if next_char not in valid_escapes:
+                # Ungültiges Escape: Backslash entfernen
+                i += 1
+                continue
+        result.append(char)
+        i += 1
+    return ''.join(result)
+
+
 def _repair_json(json_str: str) -> str:
     """Versucht, häufige JSON-Fehler zu reparieren."""
     # Entferne // Kommentare (Modell fügt diese manchmal ein)
     json_str = _strip_json_comments(json_str)
+
+    # Repariere ungültige Escape-Sequenzen (z.B. \1, \l aus OCR-Artefakten)
+    json_str = _fix_invalid_escapes(json_str)
 
     # Entferne trailing commas vor ] oder }
     json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
@@ -632,6 +675,48 @@ def _repair_json(json_str: str) -> str:
     json_str = re.sub(r',\s*,', ',', json_str)
 
     return json_str
+
+
+def _repair_truncated_json(json_str: str) -> str | None:
+    """
+    Versucht, abgeschnittenes JSON zu reparieren, indem das letzte
+    unvollständige Objekt entfernt und die Struktur geschlossen wird.
+    Rettet bereits vollständige Felder aus einer abgeschnittenen Antwort.
+    Gibt None zurück, wenn keine Reparatur möglich ist.
+    """
+    # Finde das letzte vollständig abgeschlossene Objekt im "fields"/"checkboxes"-Array
+    # Suche nach dem letzten '},' oder '}' gefolgt von einem weiteren '{' (= nächstes Objekt begonnen)
+    # oder dem letzten komplett geschlossenen Objekt vor dem Abbruch
+
+    # Strategie: Finde alle vollständigen {…}-Blöcke mit field_name
+    # und baue daraus ein gültiges JSON
+    pattern = r'\{[^{}]*"field_name"\s*:\s*"[^"]+"\s*,[^{}]*"value"\s*:\s*(?:"(?:[^"\\]|\\.)*"|"[^"]*)[^{}]*\}'
+    matches = list(re.finditer(pattern, json_str, re.DOTALL))
+    if not matches:
+        return None
+
+    # Bestimme den Key (fields oder checkboxes)
+    key_match = re.search(r'"(fields|checkboxes)"\s*:\s*\[', json_str)
+    key = key_match.group(1) if key_match else "fields"
+
+    # Validiere jeden Match einzeln und behalte nur gültige
+    valid_objects = []
+    for m in matches:
+        obj_str = m.group()
+        # Trailing comma entfernen falls vorhanden
+        obj_str = re.sub(r',(\s*\})', r'\1', obj_str)
+        try:
+            json.loads(obj_str)
+            valid_objects.append(obj_str)
+        except json.JSONDecodeError:
+            continue
+
+    if not valid_objects:
+        return None
+
+    repaired = '{"' + key + '": [' + ', '.join(valid_objects) + ']}'
+    logger.info(f"Abgeschnittenes JSON repariert: {len(valid_objects)} vollständige Felder gerettet")
+    return repaired
 
 
 def _parse_response(raw: str, key: str) -> list[ExtractionResult]:
@@ -668,13 +753,29 @@ def _parse_response(raw: str, key: str) -> list[ExtractionResult]:
                 data = json.loads(extracted)
                 logger.info("JSON erfolgreich nach Extraktion und Reparatur geparst")
             except json.JSONDecodeError as e2:
-                logger.error(f"JSON-Parsing fehlgeschlagen bei Position {e2.pos}: {e2.msg}")
-                logger.error(f"Kontext um Fehlerposition: ...{extracted[max(0, e2.pos-100):e2.pos+100]}...")
-                logger.error(f"Vollständige Antwort ({len(raw)} Zeichen): {raw}")
-                return []
+                # Letzter Versuch: abgeschnittenes JSON reparieren
+                repaired = _repair_truncated_json(cleaned)
+                if repaired:
+                    try:
+                        data = json.loads(repaired)
+                    except json.JSONDecodeError:
+                        pass
+                if data is None:
+                    logger.error(f"JSON-Parsing fehlgeschlagen bei Position {e2.pos}: {e2.msg}")
+                    logger.error(f"Kontext um Fehlerposition: ...{extracted[max(0, e2.pos-100):e2.pos+100]}...")
+                    logger.error(f"Vollständige Antwort ({len(raw)} Zeichen): {raw}")
+                    return []
         else:
-            logger.error(f"Kein JSON in Ollama-Antwort gefunden: {raw}")
-            return []
+            # Kein JSON-Block gefunden — versuche abgeschnittenes JSON zu reparieren
+            repaired = _repair_truncated_json(cleaned)
+            if repaired:
+                try:
+                    data = json.loads(repaired)
+                except json.JSONDecodeError:
+                    pass
+            if data is None:
+                logger.error(f"Kein JSON in Ollama-Antwort gefunden: {raw}")
+                return []
 
     if data is None:
         return []
