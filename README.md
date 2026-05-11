@@ -6,7 +6,7 @@ Automatisierte Verarbeitung und Ausfüllung von PDF-Formularen mit Hilfe von KI.
 
 - **PDF-Upload** - Hochladen von gescannten oder digitalen PDF-Dokumenten
 - **OCR-Texterkennung** - Automatische Textextraktion mit Tesseract (deutsch)
-- **KI-Feldextraktion** - Lokale LLM-basierte Interpretation mit Ollama (Qwen2.5)
+- **KI-Feldextraktion** - Lokale LLM-basierte Interpretation mit Ollama (gemma4:e4b)
 - **Review-Workflow** - Extrahierte Daten prüfen und korrigieren vor dem Ausfüllen
 - **PDF-Ausfüllung** - Automatisches Befüllen von PDF-Formularen
 - **Multi-Formular** - Erweiterbare Architektur für verschiedene Formulartypen

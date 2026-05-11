@@ -15,11 +15,11 @@
 ## Technologie-Stack
 
 ### Backend
-- **Framework**: Flask 3.1.0
-- **PDF-Verarbeitung**: pikepdf 9.4.2, pypdf 5.1.0
+- **Framework**: Flask 3.1.3
+- **PDF-Verarbeitung**: pikepdf 10.5.1, pypdf 6.7.1
 - **OCR**: pytesseract 0.3.13, pdf2image 1.17.0
 - **LLM**: Ollama (über HTTP API)
-- **Server**: Gunicorn 23.0.0
+- **Server**: Gunicorn 26.0.0
 
 ### Frontend
 - HTML Templates (Jinja2)
@@ -682,5 +682,5 @@ Die Version wird automatisch in der `VERSION`-Datei verwaltet. Aktualisierungen 
 
 ---
 
-**Letzte Aktualisierung**: 2026-02-17
+**Letzte Aktualisierung**: 2026-05-11
 **Claude Code**: Nutze diese Datei als Referenz für alle Projektarbeiten
