@@ -441,7 +441,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Antragsrelevante Anamnese",
         section=3,
-        description="Antragsrelevante Anamnese: Krankheitsverlauf (Beginn, Entwicklung, Wendepunkte), alle Krankenhausaufenthalte mit Datum und Diagnose, Befundberichte anderer Fachärzte, bisherige Behandlungen und Ergebnis, psychosoziale Belastungsfaktoren. WICHTIG: Diese Informationen sind im Arztbrief oft ueber den gesamten Text verteilt und stehen nicht in einem eigenen Anamnese-Abschnitt. Alle relevanten Stellen zusammenstellen und auch Teilinformationen extrahieren.",
+        description="Anamnese (Krankheitsgeschichte): Alles was im Text ueber Beginn und Verlauf der Erkrankung steht, einschliesslich stationaerer Aufenthalte, frueherer Behandlungen und Befunde anderer Aerzte. Auch Teilinformationen extrahieren.",
     ),
 
     # ===================================================================
@@ -544,7 +544,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Untersuchungsbefunde",
         section=7,
-        description="Klinische Untersuchungsbefunde bezogen auf die antragsbegründenden Diagnosen: orientierender psychischer Befund, orthopädischer Befund, kardiologischer Befund oder andere fachspezifische Befunde je nach Erkrankung",
+        description="Koerperliche und psychische Untersuchungsbefunde: klinische Beobachtungen und Untersuchungsergebnisse, auch knappe Erwaehnung wie 'Reflexe seitengleich', 'Beweglichkeit eingeschraenkt' oder 'psychisch stabil' zaehlt",
     ),
     FormField(
         field_name="VERS_KOERPERLAENGE",

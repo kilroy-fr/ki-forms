@@ -80,6 +80,14 @@ class S0051FormHandler(BaseFormHandler):
         # 2. Automatische Wertkopie: PAT_* -> VERS_*
         self._copy_patient_to_versicherte(fields_by_name)
 
+        # 3. Fallback fuer Befundfelder ohne Inhalt im Quelltext
+        for field_name in ("UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE"):
+            field = fields_by_name.get(field_name)
+            if field and not field.value:
+                field.value = "Keine Befunde vorliegend"
+                field.status = FieldStatus.FILLED
+                field.ai_confidence = "low"
+
         return fields
 
     def on_finalize(
