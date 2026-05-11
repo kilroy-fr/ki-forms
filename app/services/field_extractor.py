@@ -266,7 +266,9 @@ def _build_large_text_fields_prompt(
     field_descriptions = []
     for f in fields:
         if f.field_type == FieldType.TEXT and f.extract_from_ai and f.field_name in LARGE_TEXT_FIELDS:
-            field_descriptions.append(f'  "{f.field_name}": "{f.description}"')
+            # label_de verwenden: kurz genug, um das Output-Budget nicht zu erschöpfen;
+            # die detaillierten Extraktionsregeln stehen im SYSTEM_PROMPT
+            field_descriptions.append(f'  "{f.field_name}": "{f.label_de}"')
 
     fields_block = ",\n".join(field_descriptions)
 
