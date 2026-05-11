@@ -267,7 +267,7 @@ def _build_large_text_fields_prompt(
     field_descriptions = []
     for f in fields:
         if f.field_type == FieldType.TEXT and f.extract_from_ai:
-            field_descriptions.append(f'  "{f.field_name}": "{f.label_de}"')
+            field_descriptions.append(f'  "{f.field_name}": "{f.description}"')
 
     fields_block = ",\n".join(field_descriptions)
 
@@ -277,23 +277,24 @@ def _build_large_text_fields_prompt(
 {source_text}
 --- QUELLTEXT ENDE ---
 
-WICHTIG: Du extrahierst jetzt AUSSCHLIESSLICH die großen narrativen Textabschnitte.
-Diese Felder enthalten detaillierte medizinische Beschreibungen und können mehrere Absätze umfassen.
+WICHTIG: Du extrahierst jetzt AUSSCHLIESSLICH den folgenden narrativen Textabschnitt.
+Das Feld enthält detaillierte medizinische Beschreibungen und kann mehrere Absätze umfassen.
 
-Extrahiere die folgenden VOLLSTAENDIGEN Textabschnitte aus dem Quelltext:
+Extrahiere den VOLLSTAENDIGEN Textabschnitt aus dem Quelltext:
 
-FELDER:
+FELD:
 {{
 {fields_block}
 }}
 
-EXTRAKTIONSREGELN FÜR GROSSE TEXTFELDER:
+EXTRAKTIONSREGELN:
 1. Extrahiere VOLLSTAENDIGE Absätze und Beschreibungen, nicht nur Stichworte
 2. Behalte die Struktur und Formatierung des Originaltextes bei
-3. Erfasse ALLE relevanten Details für das jeweilige Feld
+3. Erfasse ALLE relevanten Details für dieses Feld
 4. Bei mehreren relevanten Abschnitten: Kombiniere sie sinnvoll
 5. Entferne keine medizinisch relevanten Informationen
-6. Wenn ein Abschnitt nicht im Text vorkommt, lasse das Feld komplett weg
+6. Wenn der gesuchte Inhalt nicht im Text vorkommt, lasse das Feld komplett weg
+7. Der "field_name" in der Antwort MUSS exakt dem Feldnamen in der Anfrage entsprechen
 
 Antworte im folgenden JSON-Format (NUR das JSON, kein anderer Text oder Code-Block):
 {{
