@@ -52,9 +52,7 @@ ANAMNESE:
 - Alle Krankenhausaufenthalte mit Datum und Diagnose erwaehnen
 - Befunde und Berichte anderer Fachärzte einbeziehen
 - Bisherige Behandlungsversuche und deren Ergebnis beschreiben
-- Antragsrelevante psychosoziale Belastungsfaktoren erwaehnen
-- HINWEIS: Arztbriefe haben selten einen eigenen "Anamnese"-Abschnitt. Die Informationen sind
-  oft ueber den gesamten Brief verteilt. Alle relevanten Stellen zusammenstellen. (Stress, Lebensereignisse)
+- Antragsrelevante psychosoziale Belastungsfaktoren erwaehnen (Stress, Lebensereignisse)
 
 FUNKTIONSEINSCHRAENKUNGEN:
 - Fokus auf WAS der Patient NICHT MEHR KANN, nicht nur auf die Diagnose
@@ -295,8 +293,7 @@ EXTRAKTIONSREGELN:
 3. Erfasse ALLE relevanten Details für dieses Feld
 4. Bei mehreren relevanten Abschnitten: Kombiniere sie sinnvoll
 5. Entferne keine medizinisch relevanten Informationen
-6. Teilinformationen immer extrahieren - auch wenn nicht alle Aspekte im Text stehen.
-   Nur weglassen, wenn keinerlei relevante Information vorhanden ist.
+6. Wenn der gesuchte Inhalt nicht im Text vorkommt, lasse das Feld komplett weg
 7. Der "field_name" in der Antwort MUSS exakt dem Feldnamen in der Anfrage entsprechen
 
 Antworte im folgenden JSON-Format (NUR das JSON, kein anderer Text oder Code-Block):

@@ -441,7 +441,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Antragsrelevante Anamnese",
         section=3,
-        description="Antragsrelevante Anamnese: Krankheitsverlauf (Beginn, Entwicklung, Wendepunkte), alle Krankenhausaufenthalte mit Datum und Diagnose, Befundberichte anderer Fachärzte, bisherige Behandlungen und Ergebnis, antragsrelevante psychosoziale Belastungsfaktoren (Stress, Lebensereignisse)",
+        description="Antragsrelevante Anamnese: Krankheitsverlauf (Beginn, Entwicklung, Wendepunkte), alle Krankenhausaufenthalte mit Datum und Diagnose, Befundberichte anderer Fachärzte, bisherige Behandlungen und Ergebnis, psychosoziale Belastungsfaktoren. WICHTIG: Diese Informationen sind im Arztbrief oft ueber den gesamten Text verteilt und stehen nicht in einem eigenen Anamnese-Abschnitt. Alle relevanten Stellen zusammenstellen und auch Teilinformationen extrahieren.",
     ),
 
     # ===================================================================
