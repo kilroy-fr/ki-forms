@@ -13,11 +13,16 @@ logger = logging.getLogger(__name__)
 # ICD-10-Codes Cache
 _icd10_codes: Optional[list[dict]] = None
 
-# Große Textfelder in zwei Gruppen aufgeteilt, damit das Output-Token-Budget (8192)
-# pro Pass nicht erschöpft wird (je 3 Felder × ~500 Token ≈ 1500 Token Puffer)
-LARGE_TEXT_FIELDS_GROUP_1 = {"ANAMNESE", "FUNKTIONSEINSCHRAENKUNGEN", "THERAPIE"}
-LARGE_TEXT_FIELDS_GROUP_2 = {"UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE", "LEBENSUMSTAENDE"}
-LARGE_TEXT_FIELDS = LARGE_TEXT_FIELDS_GROUP_1 | LARGE_TEXT_FIELDS_GROUP_2
+# Große Textfelder werden einzeln extrahiert (je ein Pass pro Feld),
+# damit das Output-Token-Budget nie erschöpft wird
+LARGE_TEXT_FIELDS = {
+    "ANAMNESE",
+    "FUNKTIONSEINSCHRAENKUNGEN",
+    "THERAPIE",
+    "UNTERSUCHUNGSBEFUNDE",
+    "MED_TECHN_BEFUNDE",
+    "LEBENSUMSTAENDE",
+}
 
 SYSTEM_PROMPT = """\
 Du bist ein medizinischer Dokumentationsassistent. Deine Aufgabe ist es, aus \
@@ -257,15 +262,11 @@ Lasse Felder, fuer die keine Information im Quelltext gefunden wurde, komplett w
 def _build_large_text_fields_prompt(
     fields: list[FormField],
     source_text: str,
-    field_group: set[str] | None = None,
 ) -> str:
-    """Prompt für große Textfeld-Extraktion bauen (narrative Abschnitte)."""
-    group = field_group if field_group is not None else LARGE_TEXT_FIELDS
+    """Prompt für große Textfeld-Extraktion bauen (narrative Abschnitte, ein Feld pro Pass)."""
     field_descriptions = []
     for f in fields:
-        if f.field_type == FieldType.TEXT and f.extract_from_ai and f.field_name in group:
-            # label_de verwenden: kurz genug, um das Output-Budget nicht zu erschöpfen;
-            # die detaillierten Extraktionsregeln stehen im SYSTEM_PROMPT
+        if f.field_type == FieldType.TEXT and f.extract_from_ai:
             field_descriptions.append(f'  "{f.field_name}": "{f.label_de}"')
 
     fields_block = ",\n".join(field_descriptions)
@@ -561,31 +562,20 @@ def extract_fields(
         except Exception as e:
             logger.error(f"Pass 1 fehlgeschlagen: {e}")
 
-    # --- Pass 2a: Große Textfelder Gruppe 1 (ANAMNESE, FUNKTIONSEINSCHRAENKUNGEN, THERAPIE) ---
-    large_text_fields_1 = [f for f in large_text_fields if f.field_name in LARGE_TEXT_FIELDS_GROUP_1]
-    if large_text_fields_1:
-        logger.info(f"Pass 2a: Extrahiere {len(large_text_fields_1)} große Textfelder Gruppe 1 (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})...")
-        prompt = _build_large_text_fields_prompt(large_text_fields_1, source_text, LARGE_TEXT_FIELDS_GROUP_1)
+    # --- Pass 2.x: Große Textfelder (ein Feld pro Aufruf, verhindert Token-Budget-Erschöpfung) ---
+    for pass_idx, large_field in enumerate(large_text_fields, start=1):
+        logger.info(
+            f"Pass 2.{pass_idx} ({large_field.field_name}): Extrahiere großes Textfeld "
+            f"(num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})..."
+        )
+        prompt = _build_large_text_fields_prompt([large_field], source_text)
         try:
             response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model, num_predict=8192)
             results = _parse_response(response, "fields")
             all_results.extend(results)
-            logger.info(f"Pass 2a: {len(results)} große Textfelder extrahiert")
+            logger.info(f"Pass 2.{pass_idx} ({large_field.field_name}): {len(results)} Felder extrahiert")
         except Exception as e:
-            logger.error(f"Pass 2a fehlgeschlagen: {e}")
-
-    # --- Pass 2b: Große Textfelder Gruppe 2 (UNTERSUCHUNGSBEFUNDE, MED_TECHN_BEFUNDE, LEBENSUMSTAENDE) ---
-    large_text_fields_2 = [f for f in large_text_fields if f.field_name in LARGE_TEXT_FIELDS_GROUP_2]
-    if large_text_fields_2:
-        logger.info(f"Pass 2b: Extrahiere {len(large_text_fields_2)} große Textfelder Gruppe 2 (num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})...")
-        prompt = _build_large_text_fields_prompt(large_text_fields_2, source_text, LARGE_TEXT_FIELDS_GROUP_2)
-        try:
-            response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model, num_predict=8192)
-            results = _parse_response(response, "fields")
-            all_results.extend(results)
-            logger.info(f"Pass 2b: {len(results)} große Textfelder extrahiert")
-        except Exception as e:
-            logger.error(f"Pass 2b fehlgeschlagen: {e}")
+            logger.error(f"Pass 2.{pass_idx} ({large_field.field_name}) fehlgeschlagen: {e}")
 
     # --- Pass 3: Checkboxen ---
     checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX and f.extract_from_ai]
