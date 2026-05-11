@@ -441,7 +441,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Antragsrelevante Anamnese",
         section=3,
-        description="Antragsrelevante Anamnese einschliesslich Krankenhausaufenthalte und Berichte anderer Fachaerzte",
+        description="Antragsrelevante Anamnese: Krankheitsverlauf (Beginn, Entwicklung, Wendepunkte), alle Krankenhausaufenthalte mit Datum und Diagnose, Befundberichte anderer Fachärzte, bisherige Behandlungen und Ergebnis, antragsrelevante psychosoziale Belastungsfaktoren (Stress, Lebensereignisse)",
     ),
 
     # ===================================================================
@@ -452,7 +452,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Funktionseinschränkungen",
         section=4,
-        description="Daraus resultierende Funktionseinschraenkungen in Beruf und Alltag",
+        description="Funktionelle Einschränkungen in Beruf und Alltag: Was kann der Patient krankheitsbedingt NICHT MEHR tun? Konkrete Beschreibung statt Diagnose-Nennung (nicht Bandscheibenvorfall, sondern schmerzhafte Bewegungseinschränkung der LWS mit muskulärer Schwäche). Angaben zu Gehstrecke, Hebe- und Tragevermögen, Sitzdauer, Konzentrationsfähigkeit, Selbstversorgung und sozialer Teilhabe.",
     ),
 
     # ===================================================================
@@ -533,7 +533,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Bisherige und aktuelle Therapie",
         section=6,
-        description="Bisherige und aktuelle Therapie (Medikamente, Physiotherapie, Psychotherapie etc.)",
+        description="Bisherige und aktuelle Therapie: Art, Umfang und Anzahl der Physio- und Psychotherapiesitzungen, aktuelle Medikamente mit exakter Dosierung und Einnahmedauer, alle Maßnahmen bezogen auf die antragsbegründenden Diagnosen",
     ),
 
     # ===================================================================
@@ -544,7 +544,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Untersuchungsbefunde",
         section=7,
-        description="Koerperliche und/oder psychische Untersuchungsbefunde",
+        description="Klinische Untersuchungsbefunde bezogen auf die antragsbegründenden Diagnosen: orientierender psychischer Befund, orthopädischer Befund, kardiologischer Befund oder andere fachspezifische Befunde je nach Erkrankung",
     ),
     FormField(
         field_name="VERS_KOERPERLAENGE",
@@ -569,7 +569,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Medizinisch-technische Befunde",
         section=8,
-        description="Medizinisch-technische Befunde (Labor, Roentgen, EKG, etc.)",
+        description="Medizinisch-technische Befunde zur antragsbegründenden Diagnose: Laborwerte mit relevanten Parametern, bildgebende Befunde (Röntgen, CT, MRT) mit Datum und Ergebnis, EKG, Lungenfunktion, Sonographie und andere apparative Untersuchungen",
     ),
 
     # ===================================================================
@@ -580,7 +580,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Lebensumstände / Kontextfaktoren",
         section=9,
-        description="Lebensumstaende und Kontextfaktoren (soziales Umfeld, Wohnsituation, berufliche Situation)",
+        description="Individuelle Lebensumstände und Kontextfaktoren: familiäre Belastungen (Konflikte, Trauerfälle, Pflege von Angehörigen), Erziehungsverantwortung, finanzielle Schwierigkeiten, Arbeitsplatzprobleme, besondere Tätigkeitsfaktoren - alles was das Umfeld des Patienten beschreibt",
     ),
 
     # ===================================================================

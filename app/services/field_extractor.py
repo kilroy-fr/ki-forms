@@ -46,17 +46,38 @@ DIAGNOSEN:
 - Beispiel: Statt "Bandscheibenvorfall" -> "schmerzhafte Bewegungseinschraenkung der LWS mit Schwaeche"
 - Primaere rehabilitationsbegrundende Diagnose an erster Stelle
 
-ANAMNESE UND FUNKTIONSEINSCHRAENKUNGEN:
-- Detaillierte Darstellung von Beschwerden und Beeintraechtigungen
-- Bio-psychosoziales Modell beachten
+ANAMNESE:
+- Vollstaendigen Krankheitsverlauf schildern: Beginn, Entwicklung, Wendepunkte
+- Alle Krankenhausaufenthalte mit Datum und Diagnose erwaehnen
+- Befunde und Berichte anderer Fachärzte einbeziehen
+- Bisherige Behandlungsversuche und deren Ergebnis beschreiben
+- Antragsrelevante psychosoziale Belastungsfaktoren erwaehnen (Stress, Lebensereignisse)
 
-THERAPIE UND BEHANDLUNG:
-- Bisherige und aktuelle Therapien mit Art, Umfang und Dosierungen
-- Arbeitsunfaehigkeit: Zeitpunkt und Dauer
+FUNKTIONSEINSCHRAENKUNGEN:
+- Fokus auf WAS der Patient NICHT MEHR KANN, nicht nur auf die Diagnose
+- Konkrete koerperliche Einschraenkungen: Gehstrecke, Hebe-/Tragevermögen, Sitzdauer
+- Psychische Einschraenkungen: Konzentration, Antrieb, emotionale Belastbarkeit
+- Einschraenkungen im Beruf und Alltag mit konkreten Beispielen
+- Nicht "Bandscheibenvorfall" sondern "schmerzhafte Bewegungseinschraenkung der LWS mit muskulaerer Schwaeche"
+
+THERAPIE:
+- Art, Umfang und Anzahl der Physio- und Psychotherapiesitzungen
+- Aktuelle Medikamente mit exakter Dosierung und Einnahmedauer
+- Alle Maßnahmen bezogen auf die antragsbegründenden Diagnosen
+
+UNTERSUCHUNGSBEFUNDE:
+- Klinische Befunde zur antragsbegründenden Diagnose (psychisch, orthopaedisch, kardiologisch)
+- Fachspezifische Befunderhebung je nach Erkrankung
+
+MEDIZINISCH-TECHNISCHE BEFUNDE:
+- Laborwerte mit relevanten Parametern
+- Bildgebende Befunde (Roentgen, CT, MRT) mit Datum und Ergebnis
+- EKG, Lungenfunktion, Sonographie und andere apparative Befunde
 
 KONTEXTFAKTOREN:
-- Familiaere Belastungen, Pflegeverantwortung
-- Finanzielle Schwierigkeiten, Arbeitsplatzprobleme
+- Familiaere Belastungen: Konflikte, Trauerfaelle, Pflegeverantwortung
+- Finanzielle Schwierigkeiten (Schulden), Arbeitsplatzprobleme
+- Erziehungsverantwortung, besondere Taetigkeitsfaktoren am Arbeitsplatz
 
 BESONDERHEITEN:
 - Onkologie: Primaertherapie-Status, Chemotherapie-Schema
