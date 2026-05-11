@@ -687,6 +687,34 @@ def _fix_invalid_escapes(json_str: str) -> str:
     return ''.join(result)
 
 
+def _escape_control_chars_in_strings(json_str: str) -> str:
+    """Escaped literal Steuerzeichen (Newlines etc.) innerhalb von JSON-String-Werten.
+    LLMs geben manchmal mehrzeilige Texte mit echten \\n statt \\\\n aus."""
+    result = []
+    in_string = False
+    i = 0
+    while i < len(json_str):
+        char = json_str[i]
+        if char == '"' and (i == 0 or json_str[i - 1] != '\\'):
+            in_string = not in_string
+            result.append(char)
+        elif in_string:
+            if char == '\n':
+                result.append('\\n')
+            elif char == '\r':
+                result.append('\\r')
+            elif char == '\t':
+                result.append('\\t')
+            elif ord(char) < 0x20:
+                result.append(f'\\u{ord(char):04x}')
+            else:
+                result.append(char)
+        else:
+            result.append(char)
+        i += 1
+    return ''.join(result)
+
+
 def _repair_json(json_str: str) -> str:
     """Versucht, häufige JSON-Fehler zu reparieren."""
     # Entferne // Kommentare (Modell fügt diese manchmal ein)
@@ -694,6 +722,9 @@ def _repair_json(json_str: str) -> str:
 
     # Repariere ungültige Escape-Sequenzen (z.B. \1, \l aus OCR-Artefakten)
     json_str = _fix_invalid_escapes(json_str)
+
+    # Escaped literal Steuerzeichen in Strings (LLM gibt \n statt \\n aus)
+    json_str = _escape_control_chars_in_strings(json_str)
 
     # Entferne trailing commas vor ] oder }
     json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
