@@ -278,9 +278,9 @@ def _build_large_text_fields_prompt(
 --- QUELLTEXT ENDE ---
 
 WICHTIG: Du extrahierst jetzt AUSSCHLIESSLICH den folgenden narrativen Textabschnitt.
-Das Feld enthält detaillierte medizinische Beschreibungen und kann mehrere Absätze umfassen.
+Der Text muss in ein PDF-Formularfeld passen - fasse pragnant zusammen.
 
-Extrahiere den VOLLSTAENDIGEN Textabschnitt aus dem Quelltext:
+Extrahiere und fasse zusammen:
 
 FELD:
 {{
@@ -288,20 +288,19 @@ FELD:
 }}
 
 EXTRAKTIONSREGELN:
-1. Extrahiere VOLLSTAENDIGE Absätze und Beschreibungen, nicht nur Stichworte
-2. Behalte die Struktur und Formatierung des Originaltextes bei
-3. Erfasse ALLE relevanten Details für dieses Feld
-4. Bei mehreren relevanten Abschnitten: Kombiniere sie sinnvoll
-5. Entferne keine medizinisch relevanten Informationen
-6. Wenn der gesuchte Inhalt nicht im Text vorkommt, lasse das Feld komplett weg
-7. Der "field_name" in der Antwort MUSS exakt dem Feldnamen in der Anfrage entsprechen
+1. Fasse praegnant zusammen - max. 800 Zeichen insgesamt, kein wörtlicher Auszug
+2. Kurze Aussagen, je eine pro Zeile (keine Aufzaehlungszeichen wie - oder *)
+3. Nur die medizinisch wesentlichen Fakten, keine vollstaendigen Sätze
+4. Bei mehreren relevanten Stellen im Quelltext: Kombiniere das Wesentliche
+5. Wenn der gesuchte Inhalt nicht im Text vorkommt, lasse das Feld komplett weg
+6. Der "field_name" in der Antwort MUSS exakt dem Feldnamen in der Anfrage entsprechen
 
 Antworte im folgenden JSON-Format (NUR das JSON, kein anderer Text oder Code-Block):
 {{
   "fields": [
     {{
       "field_name": "FELDNAME",
-      "value": "vollständiger extrahierter Textabschnitt mit allen Details",
+      "value": "pragnante Zusammenfassung (max. 800 Zeichen)",
       "confidence": "high|medium|low"
     }}
   ]

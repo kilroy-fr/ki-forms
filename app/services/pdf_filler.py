@@ -346,7 +346,26 @@ def _set_text_widget_appearance(
     if is_comb:
         lines = []
     elif is_multiline:
-        lines = _wrap_text_lines(value or "", width - 4.0, font_size)[:max_lines]
+        # Adaptive font sizing: find largest font (min 9pt) that fits all content
+        _MIN = 9.0
+        if font_size >= _MIN:
+            _sizes = sorted(
+                {max(_MIN, round(s * 2) / 2)
+                 for s in [font_size, font_size - 0.5, font_size - 1.0, font_size - 1.5]
+                 if s >= _MIN - 0.001} | {_MIN},
+                reverse=True,
+            )
+            lines = []
+            for _sz in _sizes:
+                _t_max = max(1, int(height // (_sz * 1.15)))
+                _t_lines = _wrap_text_lines(value or "", width - 4.0, _sz)
+                font_size, leading, max_lines = _sz, _sz * 1.15, _t_max
+                lines = _t_lines
+                if len(_t_lines) <= _t_max:
+                    break  # largest font where all content fits
+            lines = lines[:max_lines]
+        else:
+            lines = _wrap_text_lines(value or "", width - 4.0, font_size)[:max_lines]
     else:
         lines = _wrap_text_lines(value or "", width - 4.0, font_size)[:1]
 
