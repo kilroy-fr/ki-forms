@@ -14,7 +14,7 @@ Automatisierte Verarbeitung und Ausfüllung von PDF-Formularen mit Hilfe von KI.
 ## Voraussetzungen
 
 - **Docker** und **Docker Compose**
-- **Ollama** mit dem Modell `qwen2.5:14b` (oder einem anderen kompatiblen Modell)
+- **Ollama** mit dem Modell `gemma4:e4b` (oder einem anderen kompatiblen Modell)
 - Mindestens 4 GB RAM, 8+ GB empfohlen
 
 ## Schnellstart
@@ -121,7 +121,7 @@ Alle Einstellungen über Umgebungsvariablen (siehe [.env.example](.env.example))
 | Variable | Standard | Beschreibung |
 |----------|----------|-------------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama-Server URL |
-| `OLLAMA_MODEL` | `qwen2.5:14b` | LLM-Modell für Extraktion |
+| `OLLAMA_MODEL` | `gemma4:e4b` | LLM-Modell für Extraktion |
 | `OLLAMA_TIMEOUT` | `300` | Timeout in Sekunden |
 | `MAX_UPLOAD_SIZE_MB` | `50` | Max. Upload-Größe |
 | `OCR_LANGUAGE` | `deu` | Tesseract-Sprache |

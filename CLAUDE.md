@@ -667,7 +667,7 @@ logging.basicConfig(level=logging.DEBUG)
 - Parallel-Processing erwägen
 
 **Langsame Ollama-Requests**:
-- Kleineres Modell testen (z.B. qwen2.5:7b)
+- Kleineres Modell testen (z.B. gemma4:e2b)
 - GPU-Beschleunigung sicherstellen
 - Ollama auf dedizierter Hardware
 
