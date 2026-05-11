@@ -187,7 +187,7 @@ def get_gpu_layer_ratio(model_name: str | None = None) -> str:
 def chat_completion(
     system_prompt: str,
     user_prompt: str,
-    temperature: float = 0.1,
+    temperature: float = 0.0,
     num_ctx: int | None = None,
     model: str | None = None,
     num_predict: int = 4096,
@@ -230,6 +230,7 @@ def chat_completion(
         "stream": True,
         "options": {
             "temperature": temperature,
+            "seed": 42,            # Reproduzierbare Ausgaben (deterministisch)
             "num_predict": num_predict,
             "num_ctx": effective_ctx,
             "num_gpu": -1,         # Alle Layer auf GPU erzwingen (kein CPU-Offloading)
