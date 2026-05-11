@@ -48,11 +48,11 @@ DIAGNOSEN:
 - Primaere rehabilitationsbegrundende Diagnose an erster Stelle
 
 ANAMNESE:
-- Vollstaendigen Krankheitsverlauf schildern: Beginn, Entwicklung, Wendepunkte
-- Alle Krankenhausaufenthalte mit Datum und Diagnose erwaehnen
-- Befunde und Berichte anderer Fachärzte einbeziehen
-- Bisherige Behandlungsversuche und deren Ergebnis beschreiben
-- Antragsrelevante psychosoziale Belastungsfaktoren erwaehnen (Stress, Lebensereignisse)
+- Krankheitsverlauf: Beginn, Entwicklung, wichtige Ereignisse
+- Stationaere Aufenthalte mit Datum und Diagnose (falls im Text vorhanden)
+- Bisherige Behandlungen und deren Ergebnis
+- Relevante psychosoziale Faktoren
+- Keine Vollstaendigkeit erforderlich - extrahiere was vorhanden ist (Stress, Lebensereignisse)
 
 FUNKTIONSEINSCHRAENKUNGEN:
 - Fokus auf WAS der Patient NICHT MEHR KANN, nicht nur auf die Diagnose
@@ -572,6 +572,7 @@ def extract_fields(
         prompt = _build_large_text_fields_prompt([large_field], source_text)
         try:
             response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model, num_predict=8192)
+            logger.debug(f"Pass 2.{pass_idx} ({large_field.field_name}) Raw-Antwort ({len(response)} Zeichen): {response[:500]}")
             results = _parse_response(response, "fields")
             all_results.extend(results)
             logger.info(f"Pass 2.{pass_idx} ({large_field.field_name}): {len(results)} Felder extrahiert")

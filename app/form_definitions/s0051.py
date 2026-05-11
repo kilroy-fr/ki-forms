@@ -441,7 +441,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Antragsrelevante Anamnese",
         section=3,
-        description="Anamnese (Krankheitsgeschichte): Alles was im Text ueber Beginn und Verlauf der Erkrankung steht, einschliesslich stationaerer Aufenthalte, frueherer Behandlungen und Befunde anderer Aerzte. Auch Teilinformationen extrahieren.",
+        description="Vorgeschichte und Krankheitsverlauf: Beginn der Erkrankung, wichtige Ereignisse und Diagnosen, stationaere Aufenthalte, bisherige Behandlungen",
     ),
 
     # ===================================================================
