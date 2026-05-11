@@ -141,42 +141,44 @@ def _filter_relevant_icd10_codes(
     return relevant_codes
 
 
-def _build_icd10_validation_prompt(
-    diagnosis_text: str,
-    diagnosis_number: int,
-    icd10_codes: list[dict],
+def _build_icd10_batch_validation_prompt(
+    diagnoses: list[dict],
 ) -> str:
-    """Prompt zum Abgleich einer Diagnose mit ICD-10-Codes."""
-    # Filtere relevante Codes basierend auf der Diagnose
-    relevant_codes = _filter_relevant_icd10_codes(diagnosis_text, icd10_codes, max_results=150)
+    """Prompt zum Abgleich mehrerer Diagnosen mit ICD-10-Codes (Batch)."""
+    parts = []
+    for d in diagnoses:
+        codes_text = "\n".join(f"{c['Code']}: {c['Krankheit']}" for c in d["codes"])
+        parts.append(
+            f"DIAGNOSE {d['number']}:\n{d['text']}\n\n"
+            f"Relevante ICD-10-Codes ({len(d['codes'])} gefiltert):\n{codes_text}"
+        )
 
-    codes_text = "\n".join([f"{c['Code']}: {c['Krankheit']}" for c in relevant_codes])
+    diagnoses_block = "\n\n---\n\n".join(parts)
 
-    total_codes = len(icd10_codes)
-    shown_codes = len(relevant_codes)
-
-    return f"""Aufgabe: Bestimme den passenden ICD-10-Code für die folgende Diagnose.
-
-DIAGNOSE {diagnosis_number}:
-{diagnosis_text}
+    return f"""Aufgabe: Bestimme den passenden ICD-10-Code für die folgenden {len(diagnoses)} Diagnose(n).
 
 WICHTIG:
 - Gib NUR einen ICD-10-Code an, wenn du dir SICHER bist
-- Wenn du unsicher bist, gib KEINEN Code an
+- Wenn du unsicher bist, setze "icd10_code" auf null
 - Der Code muss exakt dem ICD-10-Standard entsprechen (z.B. M54.5, F32.1)
 - Setze confidence auf "high" nur wenn die Zuordnung eindeutig ist
+- Antworte fuer JEDE der {len(diagnoses)} Diagnose(n) mit einem Eintrag
 
-Die folgenden {shown_codes} ICD-10-Codes wurden als besonders relevant gefiltert (von insgesamt {total_codes}):
-{codes_text}
+{diagnoses_block}
 
 Antworte im folgenden JSON-Format (NUR das JSON, kein anderer Text):
 {{
-  "icd10_code": "CODE" oder null,
-  "confidence": "high|medium|low",
-  "reasoning": "Kurze Begründung"
+  "diagnoses": [
+    {{
+      "diagnosis_number": 1,
+      "icd10_code": "CODE" oder null,
+      "confidence": "high|medium|low",
+      "reasoning": "Kurze Begruendung"
+    }}
+  ]
 }}
 
-Wenn kein passender Code gefunden wurde oder du unsicher bist, setze "icd10_code" auf null."""
+Fuer jede Diagnose, fuer die kein passender Code gefunden wurde, setze "icd10_code" auf null."""
 
 
 def _strip_icd10_suffix(code: str) -> str:
@@ -385,40 +387,31 @@ def _validate_diagnoses_icd10(
     model: str | None = None,
 ) -> list[ExtractionResult]:
     """
-    Pass 4: ICD-10-Validierung für Diagnosen 1-10.
+    Pass 5: ICD-10-Validierung für Diagnosen 1-10 als Batch (ein Ollama-Aufruf).
 
-    Prüft für jede Diagnose, ob:
-    - Ein Diagnosetext vorhanden ist
-    - Der ICD-10-Code fehlt oder die Confidence nicht auf "high" steht
-
-    Wenn ja, wird versucht, den ICD-10-Code zu bestimmen.
+    Sammelt alle Diagnosen, die einen fehlenden oder unsicheren ICD-10-Code haben,
+    und validiert sie in einem einzigen Prompt statt in Einzelaufrufen.
+    Pro Diagnose werden 50 (statt 150) keyword-gefilterte Codes übergeben.
     """
     icd10_codes = _load_icd10_codes()
     if not icd10_codes:
-        logger.warning("ICD-10-Codes konnten nicht geladen werden, Pass 4 wird übersprungen")
+        logger.warning("ICD-10-Codes konnten nicht geladen werden, Pass 5 wird übersprungen")
         return []
 
-    new_results = []
-
-    # Prüfe Diagnosen 1-10
+    # Sammle alle Diagnosen, die Validierung benötigen
+    to_validate: list[dict] = []
     for i in range(1, 11):
         diagnosis_field = f"VERS_DIAGNOSE_{i}"
         icd10_field = f"VERS_DIAGNOSESCH_{i}"
 
-        # Suche nach der Diagnose in den Ergebnissen
         diagnosis_result = next(
-            (r for r in all_results if r.field_name == diagnosis_field),
-            None
+            (r for r in all_results if r.field_name == diagnosis_field), None
         )
-
-        # Wenn keine Diagnose vorhanden, überspringe
         if not diagnosis_result or not diagnosis_result.value:
             continue
 
-        # Prüfe, ob ICD-10-Code vorhanden und sicher ist
         icd10_result = next(
-            (r for r in all_results if r.field_name == icd10_field),
-            None
+            (r for r in all_results if r.field_name == icd10_field), None
         )
 
         needs_validation = False
@@ -433,57 +426,96 @@ def _validate_diagnoses_icd10(
             logger.info(f"Diagnose {i}: ICD-10-Code '{icd10_result.value}' nicht in Datenbank gefunden")
 
         if needs_validation:
-            logger.info(f"Diagnose {i}: Versuche ICD-10-Code zu bestimmen für '{diagnosis_result.value}'")
-            prompt = _build_icd10_validation_prompt(
-                diagnosis_result.value,
-                i,
-                icd10_codes
+            relevant_codes = _filter_relevant_icd10_codes(
+                diagnosis_result.value, icd10_codes, max_results=50
             )
+            to_validate.append({
+                "number": i,
+                "field": icd10_field,
+                "text": diagnosis_result.value,
+                "codes": relevant_codes,
+            })
 
-            try:
-                # ICD-10-Prompt enthält 150 Codes + Diagnosetext → größerer Context nötig
-                response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=settings.OLLAMA_NUM_CTX_LARGE, model=model)
-                # Parse JSON-Antwort
-                cleaned = response.strip()
-                if cleaned.startswith("```"):
-                    lines = cleaned.split("\n")
-                    lines = lines[1:]
-                    if lines and lines[-1].strip().startswith("```"):
-                        lines = lines[:-1]
-                    cleaned = "\n".join(lines).strip()
+    if not to_validate:
+        logger.info("Pass 5: Keine Diagnosen benötigen ICD-10-Validierung")
+        return []
 
-                data = json.loads(cleaned)
+    logger.info(
+        f"Pass 5: Batch-Validierung für {len(to_validate)} Diagnose(n) "
+        f"(1 Ollama-Aufruf, je 50 Codes, num_ctx={settings.OLLAMA_NUM_CTX_LARGE})..."
+    )
 
-                if data.get("icd10_code") and data["icd10_code"] != "null":
-                    # Validiere den vorgeschlagenen Code
-                    proposed_code = data["icd10_code"]
-                    # Entferne Seitenlokalisations-Suffixe
-                    proposed_code_cleaned = _strip_icd10_suffix(proposed_code)
-                    if _validate_icd10_code(proposed_code, icd10_codes):
-                        confidence = data.get("confidence", "medium")
-                        logger.info(
-                            f"Diagnose {i}: ICD-10-Code '{proposed_code_cleaned}' gefunden "
-                            f"(confidence={confidence}, reasoning={data.get('reasoning', 'N/A')})"
-                        )
-                        new_results.append(
-                            ExtractionResult(
-                                field_name=icd10_field,
-                                value=proposed_code_cleaned,
-                                confidence=confidence,
-                            )
-                        )
-                    else:
-                        logger.warning(
-                            f"Diagnose {i}: Vorgeschlagener Code '{proposed_code}' "
-                            "nicht in ICD-10-Datenbank gefunden"
-                        )
-                else:
-                    logger.info(f"Diagnose {i}: Kein passender ICD-10-Code gefunden")
+    prompt = _build_icd10_batch_validation_prompt(to_validate)
 
-            except Exception as e:
-                logger.error(f"Diagnose {i}: Fehler bei ICD-10-Validierung: {e}")
+    try:
+        response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=settings.OLLAMA_NUM_CTX_LARGE, model=model)
+        cleaned = response.strip()
 
-    return new_results
+        code_block_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
+        if code_block_match:
+            cleaned = code_block_match.group(1).strip()
+        elif cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            lines = lines[1:]
+            if lines and lines[-1].strip().startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+
+        cleaned = _repair_json(cleaned)
+
+        data = None
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(_repair_json(match.group()))
+                except json.JSONDecodeError:
+                    pass
+        if data is None:
+            logger.error(f"Pass 5: JSON-Parsing fehlgeschlagen. Antwort: {response[:500]}")
+            return []
+
+        new_results = []
+        for item in data.get("diagnoses", []):
+            diag_num = item.get("diagnosis_number")
+            code = item.get("icd10_code")
+            confidence = item.get("confidence", "medium")
+
+            if not code or str(code).lower() == "null":
+                logger.info(f"Diagnose {diag_num}: Kein passender ICD-10-Code gefunden")
+                continue
+
+            entry = next((v for v in to_validate if v["number"] == diag_num), None)
+            if not entry:
+                logger.warning(f"Pass 5: Unbekannte diagnosis_number {diag_num} in Antwort")
+                continue
+
+            code_cleaned = _strip_icd10_suffix(code)
+            if _validate_icd10_code(code, icd10_codes):
+                logger.info(
+                    f"Diagnose {diag_num}: ICD-10-Code '{code_cleaned}' gefunden "
+                    f"(confidence={confidence}, reasoning={item.get('reasoning', 'N/A')})"
+                )
+                new_results.append(
+                    ExtractionResult(
+                        field_name=entry["field"],
+                        value=code_cleaned,
+                        confidence=confidence,
+                    )
+                )
+            else:
+                logger.warning(
+                    f"Diagnose {diag_num}: Vorgeschlagener Code '{code}' "
+                    "nicht in ICD-10-Datenbank gefunden"
+                )
+
+        return new_results
+
+    except Exception as e:
+        logger.error(f"Pass 5 Batch-Validierung fehlgeschlagen: {e}")
+        return []
 
 
 def _clean_icd10_results(results: list[ExtractionResult]) -> list[ExtractionResult]:
@@ -562,21 +594,32 @@ def extract_fields(
         except Exception as e:
             logger.error(f"Pass 1 fehlgeschlagen: {e}")
 
-    # --- Pass 2.x: Große Textfelder (ein Feld pro Aufruf, verhindert Token-Budget-Erschöpfung) ---
-    for pass_idx, large_field in enumerate(large_text_fields, start=1):
+    # --- Pass 2.x: Große Textfelder ---
+    # UNTERSUCHUNGSBEFUNDE und MED_TECHN_BEFUNDE werden gemeinsam in einem Call verarbeitet,
+    # da sie thematisch zusammengehören und das Output-Budget zusammen nicht erschöpft wird.
+    _BEFUND_GROUP = {"UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE"}
+    befund_batch = [f for f in large_text_fields if f.field_name in _BEFUND_GROUP]
+    single_fields = [f for f in large_text_fields if f.field_name not in _BEFUND_GROUP]
+
+    large_field_batches: list[list] = [[f] for f in single_fields]
+    if befund_batch:
+        large_field_batches.append(befund_batch)
+
+    for pass_idx, batch in enumerate(large_field_batches, start=1):
+        field_names = ", ".join(f.field_name for f in batch)
         logger.info(
-            f"Pass 2.{pass_idx} ({large_field.field_name}): Extrahiere großes Textfeld "
+            f"Pass 2.{pass_idx} ({field_names}): Extrahiere {len(batch)} Textfeld(er) "
             f"(num_ctx={large_ctx}, model={model or settings.OLLAMA_MODEL})..."
         )
-        prompt = _build_large_text_fields_prompt([large_field], source_text)
+        prompt = _build_large_text_fields_prompt(batch, source_text)
         try:
             response = chat_completion(SYSTEM_PROMPT, prompt, num_ctx=large_ctx, model=model, num_predict=8192)
-            logger.debug(f"Pass 2.{pass_idx} ({large_field.field_name}) Raw-Antwort ({len(response)} Zeichen): {response[:500]}")
+            logger.debug(f"Pass 2.{pass_idx} ({field_names}) Raw-Antwort ({len(response)} Zeichen): {response[:500]}")
             results = _parse_response(response, "fields")
             all_results.extend(results)
-            logger.info(f"Pass 2.{pass_idx} ({large_field.field_name}): {len(results)} Felder extrahiert")
+            logger.info(f"Pass 2.{pass_idx} ({field_names}): {len(results)} Felder extrahiert")
         except Exception as e:
-            logger.error(f"Pass 2.{pass_idx} ({large_field.field_name}) fehlgeschlagen: {e}")
+            logger.error(f"Pass 2.{pass_idx} ({field_names}) fehlgeschlagen: {e}")
 
     # --- Pass 3: Checkboxen ---
     checkbox_fields = [f for f in fields if f.field_type == FieldType.CHECKBOX and f.extract_from_ai]
