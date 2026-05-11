@@ -80,9 +80,6 @@ class S0051FormHandler(BaseFormHandler):
         # 2. Automatische Wertkopie: PAT_* -> VERS_*
         self._copy_patient_to_versicherte(fields_by_name)
 
-        # 3. Standardwert fuer Befundfelder ohne KI-Extraktion
-        self._fill_default_befund_values(fields_by_name)
-
         return fields
 
     def on_finalize(
@@ -224,18 +221,6 @@ class S0051FormHandler(BaseFormHandler):
 
         except Exception as e:
             logger.warning(f"Fehler beim Befüllen der Behandlungsfelder mit Sender-Daten: {e}")
-
-    def _fill_default_befund_values(self, fields_by_name: Dict[str, FormField]) -> None:
-        """
-        Setzt 'Keine Befunde vorliegend' fuer Befundfelder, die die KI nicht befuellen konnte.
-        Verhindert leere Pflichtfelder im Reha-Antrag.
-        """
-        for field_name in ("UNTERSUCHUNGSBEFUNDE", "MED_TECHN_BEFUNDE"):
-            field = fields_by_name.get(field_name)
-            if field and not field.value:
-                field.value = "Keine Befunde vorliegend"
-                field.status = FieldStatus.FILLED
-                field.ai_confidence = "low"
 
     def _copy_patient_to_versicherte(self, fields_by_name: Dict[str, FormField]) -> None:
         """

@@ -68,26 +68,17 @@ THERAPIE:
 
 UNTERSUCHUNGSBEFUNDE:
 - Klinische Befunde zur antragsbegründenden Diagnose (psychisch, orthopaedisch, kardiologisch)
-- Auch kurze Erwaehnung in Briefen beachten (z.B. "klinisch stabiler Befund", "Reflexe seitengleich")
-- Wenn keinerlei Untersuchungsbefunde im Text vorhanden: Wert "Keine Befunde vorliegend" setzen
+- Fachspezifische Befunderhebung je nach Erkrankung
 
 MEDIZINISCH-TECHNISCHE BEFUNDE:
-- Laborwerte mit relevanten Parametern (auch einzelne Erwaehnung wie "HbA1c 7,2%" zaehlt)
-- Bildgebende Befunde (Roentgen, CT, MRT) mit Datum und Ergebnis (auch "Roentgen unauffaellig" zaehlt)
+- Laborwerte mit relevanten Parametern
+- Bildgebende Befunde (Roentgen, CT, MRT) mit Datum und Ergebnis
 - EKG, Lungenfunktion, Sonographie und andere apparative Befunde
-- Wenn keinerlei techn. Befunde im Text vorhanden: Wert "Keine Befunde vorliegend" setzen
 
 KONTEXTFAKTOREN:
 - Familiaere Belastungen: Konflikte, Trauerfaelle, Pflegeverantwortung
 - Finanzielle Schwierigkeiten (Schulden), Arbeitsplatzprobleme
 - Erziehungsverantwortung, besondere Taetigkeitsfaktoren am Arbeitsplatz
-
-SPRACHLICHE ANFORDERUNGEN (fuer alle Felder):
-- Die Informationen werden fuer einen Reha-Antrag bei der DRV verwendet, NICHT fuer den original Briefempfaenger
-- Formulierungen des Briefschreibers aus dessen Einrichtungs-Perspektive NICHT uebernehmen
-- VERBOTEN: "bei uns", "in unserem Haus", "seit dem letzten Aufenthalt bei uns", "wie bei uns bekannt", "in unserer Klinik"
-- STATTDESSEN: neutral und sachlich, z.B. "im Rahmen des stationaeren Aufenthalts", "laut Arztbrief vom..."
-- Keine Ich-Perspektive des Briefverfassers; sachliche Dritte-Person-Formulierungen verwenden
 
 BESONDERHEITEN:
 - Onkologie: Primaertherapie-Status, Chemotherapie-Schema
