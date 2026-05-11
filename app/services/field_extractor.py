@@ -687,11 +687,21 @@ def _fix_invalid_escapes(json_str: str) -> str:
     return ''.join(result)
 
 
-def _escape_control_chars_in_strings(json_str: str) -> str:
-    """Escaped literal Steuerzeichen (Newlines etc.) innerhalb von JSON-String-Werten.
-    LLMs geben manchmal mehrzeilige Texte mit echten \\n statt \\\\n aus."""
+def _close_truncated_json(json_str: str) -> str:
+    """
+    Repariert abgeschnittenes LLM-JSON in einem Durchlauf:
+    - Escaped literal Steuerzeichen (\\n, \\r, \\t ...) innerhalb von Strings
+    - Schliesst nicht-terminierten String am Ende (fehlendes Anführungszeichen)
+    - Schliesst offene { } und [ ] Strukturen am Ende
+
+    Hintergrund: LLMs geben bei langen Werten manchmal JSON aus, dessen
+    String-Wert nicht mit " abgeschlossen wird und dem die schliessenden
+    Strukturzeichen fehlen. json.loads() schlägt dann mit 'Unterminated string'
+    oder 'Kein JSON gefunden' fehl.
+    """
     result = []
     in_string = False
+    depth_stack: list[str] = []
     i = 0
     while i < len(json_str):
         char = json_str[i]
@@ -710,8 +720,19 @@ def _escape_control_chars_in_strings(json_str: str) -> str:
             else:
                 result.append(char)
         else:
+            if char == '{':
+                depth_stack.append('}')
+            elif char == '[':
+                depth_stack.append(']')
+            elif char in ('}', ']'):
+                if depth_stack and depth_stack[-1] == char:
+                    depth_stack.pop()
             result.append(char)
         i += 1
+    if in_string:
+        result.append('"')
+    for closer in reversed(depth_stack):
+        result.append(closer)
     return ''.join(result)
 
 
@@ -723,8 +744,8 @@ def _repair_json(json_str: str) -> str:
     # Repariere ungültige Escape-Sequenzen (z.B. \1, \l aus OCR-Artefakten)
     json_str = _fix_invalid_escapes(json_str)
 
-    # Escaped literal Steuerzeichen in Strings (LLM gibt \n statt \\n aus)
-    json_str = _escape_control_chars_in_strings(json_str)
+    # Escaped Steuerzeichen, schliesst unterminierten Strings und offene Strukturen
+    json_str = _close_truncated_json(json_str)
 
     # Entferne trailing commas vor ] oder }
     json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
