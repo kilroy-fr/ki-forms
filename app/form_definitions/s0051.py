@@ -441,7 +441,7 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Antragsrelevante Anamnese",
         section=3,
-        description="Vorgeschichte und Krankheitsverlauf: Beginn der Erkrankung, wichtige Ereignisse und Diagnosen, stationaere Aufenthalte, bisherige Behandlungen",
+        description="Antragsrelevante Anamnese einschliesslich Krankenhausaufenthalte und Berichte von anderen Fachärzten: chronologischer Krankheitsverlauf (Beginn, Entwicklung, wichtige Ereignisse mit Datum), stationaere Aufenthalte (Klinik, Aufnahme- und Entlassdatum, Diagnose, Behandlung), fachärztliche Berichte/Befunde anderer Spezialisten (Fachrichtung, Datum, wesentlicher Befund), bisherige ambulante Behandlungen und deren Ergebnis",
     ),
 
     # ===================================================================

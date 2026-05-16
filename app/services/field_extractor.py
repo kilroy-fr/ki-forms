@@ -42,12 +42,12 @@ DIAGNOSEN:
 - Beispiel: Statt "Bandscheibenvorfall" -> "schmerzhafte Bewegungseinschraenkung der LWS mit Schwaeche"
 - Primaere rehabilitationsbegrundende Diagnose an erster Stelle
 
-ANAMNESE:
-- Krankheitsverlauf: Beginn, Entwicklung, wichtige Ereignisse
-- Stationaere Aufenthalte mit Datum und Diagnose (falls im Text vorhanden)
-- Bisherige Behandlungen und deren Ergebnis
-- Relevante psychosoziale Faktoren
-- Keine Vollstaendigkeit erforderlich - extrahiere was vorhanden ist (Stress, Lebensereignisse)
+ANAMNESE (= "Antragsrelevante Anamnese einschliesslich Krankenhausaufenthalte und Berichte von anderen Fachärzten"):
+- Krankheitsverlauf: chronologisch, Beginn und Entwicklung der Erkrankung mit Jahreszahl/Datum
+- Stationaere Aufenthalte: Klinik, Aufnahme- und Entlassdatum, Diagnose, wesentliche Behandlung
+- Berichte anderer Fachärzte: Fachrichtung, Befunddatum, wesentlicher Befund (aus Arztbriefen, Konsilberichten, Überweisungsberichten, Entlassungsbriefen anderer Ärzte)
+- Bisherige ambulante Behandlungen und deren Ergebnis
+- Nur Informationen, die tatsaechlich im Quelltext stehen (direkt oder als Zusammenfassung aus Fremdberichten)
 
 FUNKTIONSEINSCHRAENKUNGEN:
 - Fokus auf WAS der Patient NICHT MEHR KANN, nicht nur auf die Diagnose
