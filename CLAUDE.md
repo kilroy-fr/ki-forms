@@ -16,10 +16,17 @@
 
 ### Backend
 - **Framework**: Flask 3.1.3
-- **PDF-Verarbeitung**: pikepdf 10.5.1, pypdf 6.7.1
+- **PDF-Verarbeitung**: pikepdf 10.11.0, pypdf 6.16.1
 - **OCR**: pytesseract 0.3.13, pdf2image 1.17.0
+- **Bildverarbeitung**: Pillow 12.3.0
+- **HTTP-Client**: requests 2.34.2
 - **LLM**: Ollama (über HTTP API)
 - **Server**: Gunicorn 26.0.0
+
+> **Sicherheitshinweis**: pypdf, Pillow und pikepdf verarbeiten direkt Benutzer-Uploads
+> (siehe `pdf_reader.py`). Diese drei Pakete sollten regelmäßig aktualisiert werden —
+> ältere Versionen enthalten DoS-Lücken (Endlosschleifen, Decompression Bombs), die
+> sich über präparierte PDFs auslösen lassen und einen Gunicorn-Worker blockieren.
 
 ### Frontend
 - HTML Templates (Jinja2)
@@ -27,7 +34,12 @@
 - CSS
 
 ### Python Version
-- Python 3.12
+- **Produktion (Docker)**: Python 3.12 (`python:3.12-slim`) — maßgeblich
+- **Minimum**: Python 3.12
+
+> **Achtung**: Ein lokales `.venv` kann auf einer neueren Minor-Version laufen
+> (z.B. 3.13) und zieht dann andere Wheels als der Docker-Build. Vor dem Deployment
+> immer gegen 3.12 testen bzw. das venv angleichen.
 
 ## Projektstruktur
 
@@ -588,6 +600,12 @@ logger.info(f"Session data: {sessions[session_id]}")
 python verify_field_mapping.py
 ```
 
+> **Bekannte Einschränkung von `verify_field_mapping.py`**: Das Skript sammelt Textfelder
+> nur aus den Top-Level-`/Annots` der Seiten und steigt nicht in `/Kids` ab (anders als
+> `collect_fields()` für Buttons). Verschachtelte Textfelder werden dadurch fälschlich als
+> "existiert NICHT im PDF" gemeldet. Die Trefferquote ist also zu pessimistisch —
+> im Zweifel mit `test_s0051_regression.py` gegenprüfen, das echte Füllergebnisse validiert.
+
 **Häufige Ursachen**:
 - Feld-Namen in PDF geändert
 - Encoding-Probleme bei Umlauten
@@ -682,5 +700,5 @@ Die Version wird automatisch in der `VERSION`-Datei verwaltet. Aktualisierungen 
 
 ---
 
-**Letzte Aktualisierung**: 2026-05-11
+**Letzte Aktualisierung**: 2026-08-16
 **Claude Code**: Nutze diese Datei als Referenz für alle Projektarbeiten

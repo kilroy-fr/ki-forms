@@ -128,11 +128,25 @@ Alle Einstellungen über Umgebungsvariablen (siehe [.env.example](.env.example))
 
 ## Technologie-Stack
 
-- **Backend**: Flask, Gunicorn
-- **PDF**: pikepdf, pypdf
-- **OCR**: Tesseract, pdf2image
+- **Backend**: Flask 3.1.3, Gunicorn 26.0.0
+- **PDF**: pikepdf 10.11.0, pypdf 6.16.1
+- **OCR**: Tesseract, pdf2image 1.17.0
+- **Bildverarbeitung**: Pillow 12.3.0
 - **KI**: Ollama (lokal, kein Cloud-API nötig)
 - **Containerisierung**: Docker
+
+Verbindlich sind die Pins in [requirements.txt](requirements.txt).
+
+### Abhängigkeiten aktuell halten
+
+`pypdf`, `Pillow` und `pikepdf` verarbeiten hochgeladene PDFs direkt und sind damit
+sicherheitsrelevant. Ältere Versionen enthalten DoS-Lücken, die sich über präparierte
+Dateien auslösen lassen. Diese Pakete daher regelmäßig aktualisieren:
+
+```bash
+pip install -r requirements.txt   # venv mit den Pins synchronisieren
+python test_s0051_regression.py   # Fülllogik nach dem Update prüfen
+```
 
 ## Lizenz
 
