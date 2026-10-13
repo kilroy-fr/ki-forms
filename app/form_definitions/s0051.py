@@ -1,5 +1,15 @@
 ﻿from app.models.form_schema import FormField, FieldType, FormDefinition
 
+# HINWEIS zu max_chars bei den grossen Textfeldern:
+# Die Werte sind aus der Geometrie der PDF-Widgets in data/S0051.pdf abgeleitet
+# (Breite/Hoehe des /Rect bei minimaler Schriftgroesse 9pt, gemessen mit der
+# Wrap-Logik aus pdf_filler._wrap_text_lines) und mit ca. 5% Sicherheitsabstand
+# abgerundet. Gemessene Kapazitaet: ANAMNESE 732, FUNKTIONSEINSCHRAENKUNGEN 732,
+# THERAPIE 940, MED_TECHN_BEFUNDE 940, UNTERSUCHUNGSBEFUNDE 507,
+# LEBENSUMSTAENDE 2832, BEMERKUNGEN 3040.
+# Bei Aenderungen am PDF-Template neu vermessen - sonst wird ueberstehender
+# Text beim Fuellen kommentarlos abgeschnitten.
+
 S0051_FIELDS = [
     # ===================================================================
     # Sektion 0: Kopfdaten / Identifikation
@@ -442,6 +452,7 @@ S0051_FIELDS = [
         label_de="Antragsrelevante Anamnese",
         section=3,
         description="Antragsrelevante Anamnese einschliesslich Krankenhausaufenthalte und Berichte von anderen Fachärzten: chronologischer Krankheitsverlauf (Beginn, Entwicklung, wichtige Ereignisse mit Datum), stationaere Aufenthalte (Klinik, Aufnahme- und Entlassdatum, Diagnose, Behandlung), fachärztliche Berichte/Befunde anderer Spezialisten (Fachrichtung, Datum, wesentlicher Befund), bisherige ambulante Behandlungen und deren Ergebnis",
+        max_chars=700,
     ),
 
     # ===================================================================
@@ -453,6 +464,7 @@ S0051_FIELDS = [
         label_de="Funktionseinschränkungen",
         section=4,
         description="Funktionelle Einschränkungen in Beruf und Alltag: Was kann der Patient krankheitsbedingt NICHT MEHR tun? Konkrete Beschreibung statt Diagnose-Nennung (nicht Bandscheibenvorfall, sondern schmerzhafte Bewegungseinschränkung der LWS mit muskulärer Schwäche). Angaben zu Gehstrecke, Hebe- und Tragevermögen, Sitzdauer, Konzentrationsfähigkeit, Selbstversorgung und sozialer Teilhabe.",
+        max_chars=700,
     ),
 
     # ===================================================================
@@ -533,7 +545,8 @@ S0051_FIELDS = [
         field_type=FieldType.TEXT,
         label_de="Bisherige und aktuelle Therapie",
         section=6,
-        description="Bisherige und aktuelle Therapie: Art, Umfang und Anzahl der Physio- und Psychotherapiesitzungen, aktuelle Medikamente mit exakter Dosierung und Einnahmedauer, alle Maßnahmen bezogen auf die antragsbegründenden Diagnosen",
+        description="Bisherige und aktuelle Therapie: Art, Umfang und Anzahl der Physio- und Psychotherapiesitzungen, aktuelle Medikamente nur mit Namen (ohne Dosierung und Einnahmeschema), alle Maßnahmen bezogen auf die antragsbegründenden Diagnosen",
+        max_chars=900,
     ),
 
     # ===================================================================
@@ -545,6 +558,7 @@ S0051_FIELDS = [
         label_de="Untersuchungsbefunde",
         section=7,
         description="Koerperliche und psychische Untersuchungsbefunde: klinische Beobachtungen und Untersuchungsergebnisse, auch knappe Erwaehnung wie 'Reflexe seitengleich', 'Beweglichkeit eingeschraenkt' oder 'psychisch stabil' zaehlt",
+        max_chars=480,
     ),
     FormField(
         field_name="VERS_KOERPERLAENGE",
@@ -570,6 +584,7 @@ S0051_FIELDS = [
         label_de="Medizinisch-technische Befunde",
         section=8,
         description="Medizinisch-technische Befunde zur antragsbegründenden Diagnose: Laborwerte mit relevanten Parametern, bildgebende Befunde (Röntgen, CT, MRT) mit Datum und Ergebnis, EKG, Lungenfunktion, Sonographie und andere apparative Untersuchungen",
+        max_chars=900,
     ),
 
     # ===================================================================
@@ -581,6 +596,7 @@ S0051_FIELDS = [
         label_de="Lebensumstände / Kontextfaktoren",
         section=9,
         description="Individuelle Lebensumstände und Kontextfaktoren: familiäre Belastungen (Konflikte, Trauerfälle, Pflege von Angehörigen), Erziehungsverantwortung, finanzielle Schwierigkeiten, Arbeitsplatzprobleme, besondere Tätigkeitsfaktoren - alles was das Umfeld des Patienten beschreibt",
+        max_chars=2700,
     ),
 
     # ===================================================================
@@ -912,6 +928,7 @@ S0051_FIELDS = [
         section=12,
         description="Ergaenzende Bemerkungen und Anmerkungen",
         extract_from_ai=False,
+        max_chars=2900,
     ),
     FormField(
         field_name="ARZT_UNTERS_DATUM",

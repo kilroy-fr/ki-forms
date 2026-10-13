@@ -32,6 +32,10 @@ class FormField:
     extract_from_ai: bool = True  # Ob das Feld von KI extrahiert werden soll
     conditional_on: Optional[str] = None  # Feldname, von dem dieses Feld abhängt
     conditional_value: Optional[str] = None  # Wert, der erfüllt sein muss, um dieses Feld anzuzeigen
+    # Maximale Zeichenzahl, die im PDF-Feld sichtbar Platz hat (None = kein Limit).
+    # Wird der Wert überschritten, schneidet _set_text_widget_appearance() in
+    # pdf_filler.py die überstehenden Zeilen kommentarlos ab.
+    max_chars: Optional[int] = None
 
     def model_copy(self) -> "FormField":
         return copy.deepcopy(self)
@@ -49,3 +53,7 @@ class ExtractionResult:
     field_name: str
     value: str
     confidence: str
+    # Woertliches Quelltextzitat, mit dem das Modell den Wert belegt.
+    # Nur bei den narrativen Feldern gefordert; wird in field_extractor
+    # gegen den Quelltext geprueft und danach nicht weiter verwendet.
+    beleg: Optional[str] = None

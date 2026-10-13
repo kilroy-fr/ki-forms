@@ -191,6 +191,8 @@ def chat_completion(
     num_ctx: int | None = None,
     model: str | None = None,
     num_predict: int = 4096,
+    response_schema: dict | None = None,
+    repeat_penalty: float | None = None,
 ) -> str:
     """
     Chat-Completion-Anfrage an Ollama senden.
@@ -199,8 +201,15 @@ def chat_completion(
 
     num_ctx: Context-Fenstergröße (None = settings.OLLAMA_NUM_CTX).
              Für Pässe mit vollem Quelltext settings.OLLAMA_NUM_CTX_LARGE übergeben.
+             ACHTUNG: Prompt und generierte Tokens teilen sich dieses Fenster.
     model: Modellname (None = settings.OLLAMA_MODEL).
     num_predict: Maximale Anzahl generierter Tokens (Standard: 4096).
+    response_schema: JSON-Schema, das die Antwort erzwingt (Ollama-"format").
+                     Damit entfaellt der Grossteil der JSON-Reparatur beim Parsen.
+    repeat_penalty: Strafe für Wiederholungen (None = Ollama-Default 1.1).
+                    Bei den langen narrativen Feldern noetig: mit temperature=0
+                    laeuft das Modell sonst in Wiederholungsschleifen und fuellt
+                    das Zeichenbudget mit umformulierten Dubletten.
     """
     effective_model = model if model is not None else settings.OLLAMA_MODEL
 
@@ -236,6 +245,14 @@ def chat_completion(
             "num_gpu": -1,         # Alle Layer auf GPU erzwingen (kein CPU-Offloading)
         },
     }
+
+    if repeat_penalty is not None:
+        payload["options"]["repeat_penalty"] = repeat_penalty
+
+    # Structured Output: Ollama erzwingt die Antwortstruktur waehrend des Samplings.
+    # Verhindert Markdown-Fences, Preamble-Text und ungueltiges JSON an der Wurzel.
+    if response_schema is not None:
+        payload["format"] = response_schema
 
     full_response = ""
     with requests.post(

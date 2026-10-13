@@ -22,9 +22,15 @@ class Settings:
     OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
     # Context-Fenstergröße für Pässe mit vollem Quelltext (Pass 1-4): passt noch vollständig in VRAM
     # Benchmark: 8192→10.1 GB VRAM (100%), 16384≈11.2 GB VRAM (100%), 32768→17.2 GB (64%, CPU-Overflow)
-    OLLAMA_NUM_CTX_LARGE: int = int(os.getenv("OLLAMA_NUM_CTX_LARGE", "12288"))
-    # Kleineres Modell für große Quelltexte (passt vollständig in VRAM → 100% GPU)
-    OLLAMA_MODEL_SMALL: str = os.getenv("OLLAMA_MODEL_SMALL", "gemma4:e2b")
+    # ACHTUNG: num_ctx ist das GESAMTfenster - Prompt UND generierte Tokens teilen es sich.
+    # num_predict wird deshalb in field_extractor aus dem Zeichenbudget des Feldes berechnet
+    # und nicht mehr pauschal hoch gesetzt, sonst bleibt für den Quelltext zu wenig übrig.
+    OLLAMA_NUM_CTX_LARGE: int = int(os.getenv("OLLAMA_NUM_CTX_LARGE", "16384"))
+    # Modell für große Quelltexte. Default bewusst aus derselben Familie wie das
+    # Hauptmodell: gleiches Prompt-Verhalten, und qwen2.5:7b ist mit 4.4 GB kleiner
+    # als das frühere gemma4:e2b (6.7 GB) bei deutlich besserer Qualität.
+    # Auf identischen Wert wie OLLAMA_MODEL setzen, um den Wechsel abzuschalten.
+    OLLAMA_MODEL_SMALL: str = os.getenv("OLLAMA_MODEL_SMALL", "qwen2.5:7b")
     # Schwellenwert in Zeichen: ab dieser OCR-Textlänge wird das kleinere Modell verwendet
     LARGE_TEXT_THRESHOLD: int = int(os.getenv("LARGE_TEXT_THRESHOLD", "15000"))
 
